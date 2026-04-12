@@ -1,9 +1,15 @@
 package lyc.compiler;
 
 import java_cup.runtime.*;
-
+import lyc.compiler.symboltable.*;
+import java.util.ArrayList;
+import lyc.compiler.model.*;
 class Parser;
 
+action code {:
+public ArrayList<String> var = new ArrayList<>();
+SymbolTable sym = SymbolTable.getSymbolTable();
+:};
 
 // Terminals
 terminal ASSIG;
@@ -15,25 +21,168 @@ terminal OPEN_BRACKET;
 terminal CLOSE_BRACKET;
 terminal INTEGER_CONSTANT;
 terminal IDENTIFIER;
+terminal OPEN_CURLY_BRACKET;
+terminal CLOSE_CURLY_BRACKET;
+terminal FLOAT_CONSTANT;
+terminal STRING_CONSTANT;
+terminal COLON;
+terminal COMMA;
+terminal AND;
+terminal OR;
+terminal NOT;
+terminal READ;
+terminal IF;
+terminal ELSE;
+terminal GREATER_THAN;
+terminal GREATER_THAN_OR_EQUAL;
+terminal LESS_THAN;
+terminal LESS_THAN_OR_EQUAL;
+terminal EQUAL;
+terminal NOT_EQUAL;
+
+terminal WHILE;
+terminal WRITE;
+terminal INIT;
+terminal INT;
+terminal STRING;
+terminal FLOAT;
 
 // Non Terminals
+non terminal program;
+non terminal block;
 non terminal sentence;
 non terminal assignment;
 non terminal expression;
 non terminal term;
 non terminal factor;
 
-// Start Symbol Definition
-start with sentence;
+non terminal init_sentence;
+non terminal init_line;
+non terminal var_list;
+non terminal var_type;
+non terminal write_sentence;
+non terminal write_line;
+non terminal read_sentence;
+non terminal read_line;
+non terminal if_sentence;
+non terminal else_sentence;
+non terminal while_sentence;
+non terminal while_line;
+non terminal condition_sentence;
 
+// Start Symbol Definition
+start with program;
+
+program ::= block;
+
+// Agrupo sentencias en bloques y aplico recursividad para soportar multiples lineas.
+block ::= block sentence;
+block ::= sentence;
+
+// Write
+sentence ::= write_sentence {: System.out.println("WRITE"); :};
+write_sentence ::= WRITE OPEN_BRACKET write_line CLOSE_BRACKET {: System.out.println("Bloque WRITE"); :};
+write_line ::= IDENTIFIER:id {: System.out.println("Write: " + id); :};
+write_line ::= STRING_CONSTANT:constant {:
+    System.out.println("Write: " + constant);
+    String c = constant.toString();
+    sym.insert(c,"STRING",c,false);
+    :};
+
+// Read
+sentence ::= read_sentence {: System.out.println("READ"); :};
+read_sentence ::= READ OPEN_BRACKET read_line CLOSE_BRACKET {: System.out.println("Bloque READ"); :};
+read_line ::= IDENTIFIER:id {: System.out.println("Read: " + id); :};
+
+// Assignments
 sentence ::= assignment {: System.out.println("End"); :};
-assignment ::= IDENTIFIER ASSIG expression {: System.out.println("Assignment"); :};
+assignment ::= IDENTIFIER:id ASSIG expression {: System.out.println("Assignment "+id+":= expression"); :};
+assignment ::= IDENTIFIER:id ASSIG STRING_CONSTANT:constant {:
+    System.out.println("Assignment: "+id+":="+ constant);
+    String c = constant.toString();
+    sym.insert(c,"STRING",c,false);:};
+
+// Init
+sentence ::= init_sentence {: System.out.println("INIT"); :};
+init_sentence ::= INIT OPEN_CURLY_BRACKET init_line CLOSE_CURLY_BRACKET {: System.out.println("Bloque INIT"); :};
+init_line ::=  var_list COLON var_type init_line {: System.out.println("Linea declaracion de variables INIT"); :};
+init_line ::=  var_list COLON var_type {: System.out.println("Ultima Linea declaracion de variables INIT"); :};
+var_list ::= IDENTIFIER: id COMMA var_list {:
+    var.add(id.toString());
+    System.out.println("Variable: "+id);
+:};
+var_list ::= IDENTIFIER: id {:
+    var.add(id.toString());
+    System.out.println("Variable: "+id);
+:};
+var_type ::= STRING {: System.out.println("STRING");
+    for (String v: var){
+        if(sym.exists(v)){
+            throw new VariableAlreadyDeclaredException("La variable \""+v+"\" Ya fue declarada.");
+        }
+        sym.insert(v,"STRING","",true);
+    }
+    var.clear();
+:};
+var_type ::= INT {: System.out.println("INT");
+    for (String v: var){
+        if(sym.exists(v)){
+            throw new VariableAlreadyDeclaredException("La variable \""+v+"\" Ya fue declarada.");
+        }
+        sym.insert(v,"INT","",true);
+    }
+    var.clear();
+:};
+var_type ::= FLOAT {: System.out.println("FLOAT");
+    for (String v: var){
+        if(sym.exists(v)){
+            throw new VariableAlreadyDeclaredException("La variable \""+v+"\" Ya fue declarada.");
+        }
+        sym.insert(v,"FLOAT","",true);
+    }
+    var.clear();
+:};
+
+// Conditions
+condition_sentence ::= expression AND expression {: System.out.println("AND"); :};
+condition_sentence ::= expression OR expression {: System.out.println("OR"); :};
+condition_sentence ::= NOT expression {: System.out.println("NOT"); :};
+condition_sentence ::= expression {: System.out.println("Condition"); :};
+
+// If/else condition
+sentence ::= if_sentence {: System.out.println("IF"); :};
+if_sentence ::= IF OPEN_BRACKET condition_sentence CLOSE_BRACKET OPEN_CURLY_BRACKET block CLOSE_CURLY_BRACKET {: System.out.println("If sentence"); :};
+if_sentence ::= IF OPEN_BRACKET condition_sentence CLOSE_BRACKET OPEN_CURLY_BRACKET block CLOSE_CURLY_BRACKET else_sentence {: System.out.println("If with else sentence"); :};
+else_sentence ::= ELSE OPEN_CURLY_BRACKET block CLOSE_CURLY_BRACKET {: System.out.println("Else sentence"); :};
+
+// While
+sentence ::= while_sentence {: System.out.println("While"); :};
+while_sentence ::= WHILE OPEN_BRACKET condition_sentence CLOSE_BRACKET while_line {: System.out.println("While sentence"); :};
+while_line ::= OPEN_CURLY_BRACKET block CLOSE_CURLY_BRACKET {: System.out.println("While line"); :};
+
+
+// Expressions
 expression ::= expression PLUS term {: System.out.println("+"); :};
 expression ::= expression SUB term {: System.out.println("-"); :};
+expression ::= expression GREATER_THAN term {: System.out.println(">"); :};
+expression ::= expression GREATER_THAN_OR_EQUAL term {: System.out.println(">="); :};
+expression ::= expression LESS_THAN term {: System.out.println("<"); :};
+expression ::= expression LESS_THAN_OR_EQUAL term {: System.out.println("<="); :};
+expression ::= expression NOT_EQUAL term {: System.out.println("!="); :};
+expression ::= expression EQUAL term {: System.out.println("=="); :};
 expression ::= term {: System.out.println("Expression = Term"); :};
 term ::= term MULT factor {: System.out.println("*"); :};
 term ::= term DIV factor {: System.out.println("/"); :};
 term ::= factor {: System.out.println("Term = factor"); :};
 factor ::= IDENTIFIER:id  {: System.out.println("Id: " + id); :};
-factor ::= INTEGER_CONSTANT:constant {: System.out.println("Constant: " + constant ); :};
+
+factor ::= FLOAT_CONSTANT:constant {:
+    System.out.println("FLOAT Constant: " + constant );
+    sym.insert(constant.toString(),"FLOAT",constant.toString(),false);
+:};
+factor ::= INTEGER_CONSTANT:constant {:
+    System.out.println("INT Constant: " + constant );
+    sym.insert(constant.toString(),"INT",constant.toString(),false);
+:};
+
 factor ::= OPEN_BRACKET expression CLOSE_BRACKET {: System.out.println("Factor = (Expression)"); :};

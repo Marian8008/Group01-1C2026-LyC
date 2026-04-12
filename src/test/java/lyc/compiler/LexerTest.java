@@ -17,21 +17,26 @@ import static com.google.common.truth.Truth.assertThat;
 import static lyc.compiler.constants.Constants.MAX_LENGTH;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
-
-@Disabled
-public class LexerTest {
+class LexerTest {
 
   private Lexer lexer;
 
-
   @Test
-  public void comment() throws Exception{
-    scan("/*This is a comment*/");
+  void comment() throws Exception{
+    scan("#+This is a comment+#");
     assertThat(nextToken()).isEqualTo(ParserSym.EOF);
   }
 
   @Test
-  public void invalidStringConstantLength() {
+  void invalidComment(){
+    assertThrows(UnknownCharacterException.class, () -> {
+      scan("#+###This is a comment####+#");
+      nextToken();
+    });
+  }
+
+  @Test
+  void invalidStringConstantLength() {
     assertThrows(InvalidLengthException.class, () -> {
       scan("\"%s\"".formatted(getRandomString()));
       nextToken();
@@ -39,7 +44,7 @@ public class LexerTest {
   }
 
   @Test
-  public void invalidIdLength() {
+  void invalidIdLength() {
     assertThrows(InvalidLengthException.class, () -> {
       scan(getRandomString());
       nextToken();
@@ -47,25 +52,25 @@ public class LexerTest {
   }
 
   @Test
-  public void invalidPositiveIntegerConstantValue() {
+  void invalidPositiveIntegerConstantValue() {
     assertThrows(InvalidIntegerException.class, () -> {
       scan("%d".formatted(9223372036854775807L));
       nextToken();
     });
   }
 
+  @Disabled
   @Test
-  public void invalidNegativeIntegerConstantValue() {
+  void invalidNegativeIntegerConstantValue() {
     assertThrows(InvalidIntegerException.class, () -> {
       scan("%d".formatted(-9223372036854775807L));
       nextToken();
     });
   }
 
-
   @Test
-  public void assignmentWithExpressions() throws Exception {
-    scan("c=d*(e-21)/4");
+  void assignmentWithExpressions() throws Exception {
+    scan("c:=d*(e-21)/4");
     assertThat(nextToken()).isEqualTo(ParserSym.IDENTIFIER);
     assertThat(nextToken()).isEqualTo(ParserSym.ASSIG);
     assertThat(nextToken()).isEqualTo(ParserSym.IDENTIFIER);
@@ -81,7 +86,7 @@ public class LexerTest {
   }
 
   @Test
-  public void unknownCharacter() {
+  void unknownCharacter() {
     assertThrows(UnknownCharacterException.class, () -> {
       scan("#");
       nextToken();
@@ -89,7 +94,7 @@ public class LexerTest {
   }
 
   @AfterEach
-  public void resetLexer() {
+  void resetLexer() {
     lexer = null;
   }
 
@@ -103,9 +108,9 @@ public class LexerTest {
 
   private static String getRandomString() {
     return new RandomStringGenerator.Builder()
-            .filteredBy(CharacterPredicates.LETTERS)
-            .withinRange('a', 'z')
-            .build().generate(MAX_LENGTH * 2);
+        .filteredBy(CharacterPredicates.LETTERS)
+        .withinRange('a', 'z')
+        .build().generate(MAX_LENGTH * 2);
   }
 
 }

@@ -1,1 +1,48 @@
-c=d*(e-21)/4
+init {
+    f1,f2,f3 : Float
+    i1 : Int
+    i2 : Int
+    s1,s2,s3 : String
+    i3 : Int
+}
+
+i1 := 1
+i2 := 3
+
+while (NOT i1 < i2)
+{
+    write("Prueba de while, write, NOT")
+    i1 := i1 + 1
+}
+
+if (i2 == i1 OR i1 != 10){
+   write("Prueba de if simple, OR")
+}
+
+if (i2 != i1 AND i2 != 10){
+   write("Prueba de if else, read, AND")
+   f1 := 10.0
+   f2 := 1.0
+   while (f2 <= f1){
+        write("Prueba de float, bloques anidados")
+        f1 := f1 - 1.0
+        if (f1 >= f2){
+            s3 := "hola"
+        }
+   }
+}
+else {
+   read(s1)
+}
+
+#+ Validacion de longitud de Strings e Ids +#
+#+ strmuylargo := "a12345678901234567890123456789012345678901234567890" +#
+#+ a12345678901234567890123456789012345678901234567890 := "Id supera 50 caracteres" +#
+
+#+ Validacion de valor maximo Int y Float +#
+
+#+ i1 := 999999 +#
+#+ f1 := 99999999999.99 +#
+
+#+ Validacion de caracter invalido +#
+#+ s1 := ┼ +#

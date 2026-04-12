@@ -1,0 +1,6 @@
+#+ Esto es un comentario +#
+#+ Se añade una asignacion porque no se permite compilar un programa vacio +#
+#+ a:=1 +#
+a:=1
+#+ otro comment +#
+#++#
