@@ -59,7 +59,6 @@ class LexerTest {
     });
   }
 
-  @Disabled
   @Test
   void invalidNegativeIntegerConstantValue() {
     assertThrows(InvalidIntegerException.class, () -> {

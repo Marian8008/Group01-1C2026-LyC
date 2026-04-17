@@ -87,6 +87,36 @@ class ParserTest {
     compilationSuccessful(readFromResources("while.txt"));
   }
 
+  @Test
+  void arithmeticStatement() throws Exception {
+    System.out.println("### Arithmetic test ###");
+    compilationSuccessful(readFromResources("arithmetic.txt"));
+  }
+
+  @Test
+  void forStatement() throws Exception {
+    System.out.println("### For test ###");
+    compilationSuccessful(readFromResources("for.txt"));
+  }
+
+  @Test
+  void doWhileStatement() throws Exception {
+    System.out.println("### Do while test ###");
+    compilationSuccessful(readFromResources("dowhile.txt"));
+  }
+
+  @Test
+  void modDivStatement() throws Exception {
+    System.out.println("### MOD/DIV test ###");
+    compilationSuccessful(readFromResources("moddiv.txt"));
+  }
+
+  @Test
+  void longStatement() throws Exception {
+    System.out.println("### long test ###");
+    compilationSuccessful(readFromResources("long.txt"));
+  }
+
   private void compilationSuccessful(String input) throws Exception {
     assertThat(scan(input).sym).isEqualTo(ParserSym.EOF);
   }

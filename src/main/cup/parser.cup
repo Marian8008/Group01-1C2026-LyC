@@ -19,6 +19,8 @@ terminal MULT;
 terminal DIV;
 terminal OPEN_BRACKET;
 terminal CLOSE_BRACKET;
+terminal OPEN_SQUARE_BRACKET;
+terminal CLOSE_SQUARE_BRACKET;
 terminal INTEGER_CONSTANT;
 terminal IDENTIFIER;
 terminal OPEN_CURLY_BRACKET;
@@ -39,6 +41,12 @@ terminal LESS_THAN;
 terminal LESS_THAN_OR_EQUAL;
 terminal EQUAL;
 terminal NOT_EQUAL;
+terminal FOR;
+terminal TO;
+terminal DO;
+terminal IN;
+terminal MOD;
+terminal LONG;
 
 terminal WHILE;
 terminal WRITE;
@@ -68,7 +76,10 @@ non terminal if_sentence;
 non terminal else_sentence;
 non terminal while_sentence;
 non terminal while_line;
+non terminal for_sentence;
+non terminal long_sentence;
 non terminal condition_sentence;
+non terminal list_values;
 
 // Start Symbol Definition
 start with program;
@@ -147,7 +158,11 @@ var_type ::= FLOAT {: System.out.println("FLOAT");
 condition_sentence ::= expression AND expression {: System.out.println("AND"); :};
 condition_sentence ::= expression OR expression {: System.out.println("OR"); :};
 condition_sentence ::= NOT expression {: System.out.println("NOT"); :};
+condition_sentence ::= expression IN OPEN_SQUARE_BRACKET list_values CLOSE_SQUARE_BRACKET {: System.out.println("IN"); :};
 condition_sentence ::= expression {: System.out.println("Condition"); :};
+
+list_values ::= expression COMMA list_values {: System.out.println("List value"); :};
+list_values ::= expression {: System.out.println("Last list value"); :};
 
 // If/else condition
 sentence ::= if_sentence {: System.out.println("IF"); :};
@@ -158,7 +173,16 @@ else_sentence ::= ELSE OPEN_CURLY_BRACKET block CLOSE_CURLY_BRACKET {: System.ou
 // While
 sentence ::= while_sentence {: System.out.println("While"); :};
 while_sentence ::= WHILE OPEN_BRACKET condition_sentence CLOSE_BRACKET while_line {: System.out.println("While sentence"); :};
+while_sentence ::= WHILE OPEN_BRACKET condition_sentence CLOSE_BRACKET DO while_line {: System.out.println("While-do sentence"); :};
 while_line ::= OPEN_CURLY_BRACKET block CLOSE_CURLY_BRACKET {: System.out.println("While line"); :};
+
+// For
+sentence ::= for_sentence {: System.out.println("FOR"); :};
+for_sentence ::= FOR OPEN_BRACKET IDENTIFIER ASSIG expression TO expression CLOSE_BRACKET while_line {: System.out.println("For sentence"); :};
+
+// Long
+sentence ::= long_sentence {: System.out.println("LONG"); :};
+long_sentence ::= LONG OPEN_BRACKET OPEN_SQUARE_BRACKET list_values CLOSE_SQUARE_BRACKET CLOSE_BRACKET ASSIG expression {: System.out.println("Long sentence"); :};
 
 
 // Expressions
@@ -173,6 +197,7 @@ expression ::= expression EQUAL term {: System.out.println("=="); :};
 expression ::= term {: System.out.println("Expression = Term"); :};
 term ::= term MULT factor {: System.out.println("*"); :};
 term ::= term DIV factor {: System.out.println("/"); :};
+term ::= term MOD factor {: System.out.println("%"); :};
 term ::= factor {: System.out.println("Term = factor"); :};
 factor ::= IDENTIFIER:id  {: System.out.println("Id: " + id); :};
 
