@@ -36,6 +36,7 @@ public class SymbolLYC {
 
   public void setValue(String value) {
     this.value = value;
+    this.length = value.length();
   }
 
   public String getName() {

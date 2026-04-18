@@ -111,7 +111,9 @@ assignment ::= IDENTIFIER:id ASSIG expression {: System.out.println("Assignment 
 assignment ::= IDENTIFIER:id ASSIG STRING_CONSTANT:constant {:
     System.out.println("Assignment: "+id+":="+ constant);
     String c = constant.toString();
-    sym.insert(c,"STRING",c,false);:};
+    sym.insert(c,"STRING",c,false);
+    sym.updateValue(id.toString(), c);
+:};
 
 // Init
 sentence ::= init_sentence {: System.out.println("INIT"); :};

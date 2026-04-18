@@ -41,6 +41,13 @@ public final class SymbolTable {
     return table.get(name);
   }
 
+  public void updateValue(String name, String value) {
+    SymbolLYC symbol = table.get(name);
+    if (symbol != null) {
+      symbol.setValue(value);
+    }
+  }
+
   public boolean exists(String name) {
     return table.containsKey(name);
   }
