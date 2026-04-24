@@ -54,6 +54,8 @@ terminal INIT;
 terminal INT;
 terminal STRING;
 terminal FLOAT;
+terminal STEP;
+terminal NEXT;
 
 // Non Terminals
 non terminal program;
@@ -80,6 +82,7 @@ non terminal for_sentence;
 non terminal long_sentence;
 non terminal condition_sentence;
 non terminal list_values;
+non terminal opt_step;
 
 // Start Symbol Definition
 start with program;
@@ -180,12 +183,9 @@ while_line ::= OPEN_CURLY_BRACKET block CLOSE_CURLY_BRACKET {: System.out.printl
 
 // For
 sentence ::= for_sentence {: System.out.println("FOR"); :};
-for_sentence ::= FOR OPEN_BRACKET IDENTIFIER ASSIG expression TO expression CLOSE_BRACKET while_line {: System.out.println("For sentence"); :};
-
-// Long
-sentence ::= long_sentence {: System.out.println("LONG"); :};
-long_sentence ::= LONG OPEN_BRACKET OPEN_SQUARE_BRACKET list_values CLOSE_SQUARE_BRACKET CLOSE_BRACKET ASSIG expression {: System.out.println("Long sentence"); :};
-
+for_sentence ::= FOR OPEN_BRACKET IDENTIFIER ASSIG expression TO expression CLOSE_BRACKET opt_step OPEN_CURLY_BRACKET block CLOSE_CURLY_BRACKET NEXT IDENTIFIER {: System.out.println("For sentence"); :};
+opt_step ::= STEP expression;
+opt_step ::= ;
 
 // Expressions
 expression ::= expression PLUS term {: System.out.println("+"); :};
@@ -213,3 +213,8 @@ factor ::= INTEGER_CONSTANT:constant {:
 :};
 
 factor ::= OPEN_BRACKET expression CLOSE_BRACKET {: System.out.println("Factor = (Expression)"); :};
+
+
+// Long
+factor ::= LONG OPEN_BRACKET OPEN_SQUARE_BRACKET list_values CLOSE_SQUARE_BRACKET CLOSE_BRACKET {:
+    System.out.println("Long function"); :};

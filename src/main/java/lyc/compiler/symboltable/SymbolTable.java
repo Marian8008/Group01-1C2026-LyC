@@ -19,22 +19,24 @@ public final class SymbolTable {
     return symt;
   }
 
-  public void insert(String name, String type, String value, boolean isID) {
+  public String insert(String name, String type, String value, boolean isID) {
     if (!isID) {
       type = "CTE_" + type;
 
       if (type.equals("CTE_STRING")) {
+        for (SymbolLYC sym : table.values()) {
+          if (sym.getValue().equals(value) && sym.getType().equals(type)) {
+            return sym.getName(); // reutilizar
+          }
+        }
         name = "_str" + (++stringCounter);
       } else {
         name = "_" + name;
       }
     }
-    for (SymbolLYC sym : table.values()) {
-      if (sym.getValue().equals(value) && sym.getType().equals(type)) {
-        return;
-      }
-    }
+
     table.put(name, new SymbolLYC(name, value, type));
+    return name;
   }
 
   public SymbolLYC get(String name) {

@@ -2,3 +2,4 @@ for (i := 1 TO 5)
 {
    read(i)
 }
+NEXT i

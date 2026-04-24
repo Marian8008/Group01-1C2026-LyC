@@ -118,6 +118,8 @@ Do = "do"
 In = "IN"
 Mod = "MOD"
 DivWord = "DIV"
+Step = "STEP"
+Next = "NEXT"
 Long = "long"
 LineComment = "//" {CommentCharacters}
 %%
@@ -143,6 +145,8 @@ LineComment = "//" {CommentCharacters}
   {In}                                     { return symbol(ParserSym.IN); }
   {Mod}                                    { return symbol(ParserSym.MOD); }
   {DivWord}                                { return symbol(ParserSym.DIV); }
+  {Step} { return symbol(ParserSym.STEP); }
+  {Next} { return symbol(ParserSym.NEXT); }
   {Long}                                   { return symbol(ParserSym.LONG); }
   /* tipos de dato */
   {Int}                                   { return symbol(ParserSym.INT); }
