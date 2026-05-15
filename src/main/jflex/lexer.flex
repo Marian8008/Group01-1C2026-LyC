@@ -88,10 +88,9 @@ Digit = [0-9]
 
 WhiteSpace = ({LineTerminator} | {Identation})+
 
-// Cualquier caracter menos salto de linea (comments de una linea) o ningun caracter
-CommentCharacters = ([^\r\n])*
+ValidMultilineCommentCharacter = [a-zA-ZáéíóúÁÉÍÓÚñÑ0-9_ \t\r\n.,;:(){}\[\]\+\-\*/=!<>\"]
+Comment = "#+" {ValidMultilineCommentCharacter}* "+#"
 
-Comment = "#+" {CommentCharacters} "+#"
 Identifier = {Letter} ({Letter}|{Digit})*
 
 IntegerConstant = {Digit}+
@@ -121,7 +120,9 @@ DivWord = "DIV"
 Step = "STEP"
 Next = "NEXT"
 Long = "long"
-LineComment = "//" {CommentCharacters}
+
+ValidLineCommentCharacter = [a-zA-ZáéíóúÁÉÍÓÚñÑ0-9_ \t\r.,;:(){}\[\]\+\-\*/=!<>\"]
+LineComment = "//" {ValidLineCommentCharacter}*
 %%
 
 
@@ -216,12 +217,7 @@ LineComment = "//" {CommentCharacters}
   /* whitespace, comment */
   {WhiteSpace}                   { /* ignore */ }
   {LineComment}                  { /* ignore */ }
-  {Comment}                      {
-        String value = yytext().substring(1, yytext().length() - 1);;
-        if (value.indexOf('#') != -1) {
-            throw new UnknownCharacterException(yytext());
-        }
-    }
+  {Comment} { }
 }
 
 

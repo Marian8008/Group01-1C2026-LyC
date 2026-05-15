@@ -53,6 +53,3 @@ a := long([1+2, 3*4, x])
 
 #+ i1 := 999999 +#
 #+ f1 := 99999999999.99 +#
-
-#+ Validacion de caracter invalido +#
-#+ s1 := ┼ +#

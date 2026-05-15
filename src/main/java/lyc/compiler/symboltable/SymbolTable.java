@@ -24,12 +24,14 @@ public final class SymbolTable {
       type = "CTE_" + type;
 
       if (type.equals("CTE_STRING")) {
+
         for (SymbolLYC sym : table.values()) {
           if (sym.getValue().equals(value) && sym.getType().equals(type)) {
-            return sym.getName(); // reutilizar
+            return sym.getName();
           }
         }
-        name = "_str" + (++stringCounter);
+
+        name = "_" + sanitizeString(value);
       } else {
         name = "_" + name;
       }
@@ -37,6 +39,13 @@ public final class SymbolTable {
 
     table.put(name, new SymbolLYC(name, value, type));
     return name;
+  }
+
+  private String sanitizeString(String value) {
+    return value
+            .replaceAll("\\s+", "_")     // espacios -> _
+            .replaceAll("[^a-zA-Z0-9_]", "") // quitar símbolos raros
+            .toLowerCase();
   }
 
   public SymbolLYC get(String name) {
