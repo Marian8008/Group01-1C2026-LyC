@@ -4,11 +4,13 @@ import java_cup.runtime.*;
 import lyc.compiler.symboltable.*;
 import java.util.ArrayList;
 import lyc.compiler.model.*;
+import lyc.compiler.syntactictree.*;
 class Parser;
 
 action code {:
 public ArrayList<String> var = new ArrayList<>();
 SymbolTable sym = SymbolTable.getSymbolTable();
+SyntacticTree synt = SyntacticTree.getSyntacticTree();
 :};
 
 // Terminals
@@ -58,163 +60,360 @@ terminal STEP;
 terminal NEXT;
 
 // Non Terminals
-non terminal program;
-non terminal block;
-non terminal sentence;
-non terminal assignment;
-non terminal expression;
-non terminal term;
-non terminal factor;
-
-non terminal init_sentence;
-non terminal init_line;
-non terminal var_list;
-non terminal var_type;
-non terminal write_sentence;
-non terminal write_line;
-non terminal read_sentence;
-non terminal read_line;
-non terminal if_sentence;
-non terminal else_sentence;
-non terminal while_sentence;
-non terminal while_line;
-non terminal for_sentence;
-non terminal long_sentence;
-non terminal condition_sentence;
-non terminal list_values;
-non terminal opt_step;
+non terminal Nodo program;
+non terminal Nodo block;
+non terminal Nodo sentence;
+non terminal Nodo assignment;
+non terminal Nodo expression;
+non terminal Nodo term;
+non terminal Nodo factor;
+non terminal Nodo init_sentence;
+non terminal Nodo init_line;
+non terminal Nodo var_list;
+non terminal Nodo var_type;
+non terminal Nodo write_sentence;
+non terminal Nodo write_line;
+non terminal Nodo read_sentence;
+non terminal Nodo read_line;
+non terminal Nodo if_sentence;
+non terminal Nodo else_sentence;
+non terminal Nodo while_sentence;
+non terminal Nodo while_line;
+non terminal Nodo for_sentence;
+non terminal Nodo condition_sentence;
+non terminal Nodo list_values;
+non terminal Nodo opt_step;
 
 // Start Symbol Definition
 start with program;
 
-program ::= block;
+program ::= block:b {:
+	RESULT = b;
+	synt.setRoot(b);
+:};
 
 // Agrupo sentencias en bloques y aplico recursividad para soportar multiples lineas.
-block ::= block sentence;
-block ::= sentence;
+block ::= block:b sentence:s {:
+	RESULT = new Root("BLOCK", b, s);
+:};
+block ::= sentence:s {:
+	RESULT = new Root("BLOCK", s, null);
+:};
 
 // Write
-sentence ::= write_sentence {: System.out.println("WRITE"); :};
-write_sentence ::= WRITE OPEN_BRACKET write_line CLOSE_BRACKET {: System.out.println("Bloque WRITE"); :};
-write_line ::= IDENTIFIER:id {: System.out.println("Write: " + id); :};
+sentence ::= write_sentence:w_s {:
+	System.out.println("WRITE");
+	RESULT = w_s;
+:};
+
+write_sentence ::= WRITE OPEN_BRACKET write_line:w_l CLOSE_BRACKET {:
+	System.out.println("Bloque WRITE");
+	RESULT = new Root("WRITE", w_l, null);
+:};
+
+write_line ::= IDENTIFIER:id {:
+	System.out.println("Write: " + id);
+	RESULT = new Leaf(id.toString());
+:};
+
 write_line ::= STRING_CONSTANT:constant {:
     System.out.println("Write: " + constant);
     String c = constant.toString();
     sym.insert(c,"STRING",c,false);
-    :};
+    RESULT = new Leaf(c);
+:};
 
 // Read
-sentence ::= read_sentence {: System.out.println("READ"); :};
-read_sentence ::= READ OPEN_BRACKET read_line CLOSE_BRACKET {: System.out.println("Bloque READ"); :};
-read_line ::= IDENTIFIER:id {: System.out.println("Read: " + id); :};
+sentence ::= read_sentence:r_s {:
+	System.out.println("READ");
+	RESULT = r_s;
+:};
+
+read_sentence ::= READ OPEN_BRACKET read_line:r_l CLOSE_BRACKET {:
+	System.out.println("Bloque READ");
+	RESULT = new Root("READ", r_l, null);
+:};
+
+read_line ::= IDENTIFIER:id {:
+	System.out.println("Read: " + id);
+	RESULT = new Leaf(id.toString());
+:};
 
 // Assignments
-sentence ::= assignment {: System.out.println("End"); :};
-assignment ::= IDENTIFIER:id ASSIG expression {: System.out.println("Assignment "+id+":= expression"); :};
+sentence ::= assignment:a {:
+	System.out.println("End");
+	RESULT = a;
+:};
+
+assignment ::= IDENTIFIER:id ASSIG expression:e {:
+	System.out.println("Assignment "+id+":= expression");
+	RESULT = new Root("ASSIG", new Leaf(id.toString()), e);
+:};
+
 assignment ::= IDENTIFIER:id ASSIG STRING_CONSTANT:constant {:
     System.out.println("Assignment: "+id+":="+ constant);
     String c = constant.toString();
     sym.insert(c,"STRING",c,false);
     sym.updateValue(id.toString(), c);
+    RESULT = new Root("ASSIG", new Leaf(id.toString()), new Leaf(c));
 :};
 
 // Init
-sentence ::= init_sentence {: System.out.println("INIT"); :};
-init_sentence ::= INIT OPEN_CURLY_BRACKET init_line CLOSE_CURLY_BRACKET {: System.out.println("Bloque INIT"); :};
-init_line ::=  var_list COLON var_type init_line {: System.out.println("Linea declaracion de variables INIT"); :};
-init_line ::=  var_list COLON var_type {: System.out.println("Ultima Linea declaracion de variables INIT"); :};
-var_list ::= IDENTIFIER: id COMMA var_list {:
+sentence ::= init_sentence:i_s {:
+	System.out.println("INIT");
+		RESULT = i_s;
+:};
+
+init_sentence ::= INIT OPEN_CURLY_BRACKET init_line:i_l CLOSE_CURLY_BRACKET {:
+	System.out.println("Bloque INIT");
+	RESULT = new Root("INIT_BLOCK", i_l, null);
+:};
+
+init_line ::=  var_list:v_l COLON var_type:v_t init_line:i_l {:
+	System.out.println("Linea declaracion de variables INIT");
+	Nodo declaracion = new Root("INIT_LINE", v_t, v_l);
+	RESULT = new Root("INIT", declaracion, i_l );
+:};
+
+
+init_line ::=  var_list COLON var_type:v_t {:
+	System.out.println("Ultima Linea declaracion de variables INIT");
+	RESULT = v_t;
+:};
+
+var_list ::= IDENTIFIER:id COMMA var_list {:
     var.add(id.toString());
     System.out.println("Variable: "+id);
 :};
-var_list ::= IDENTIFIER: id {:
+
+var_list ::= IDENTIFIER:id {:
     var.add(id.toString());
     System.out.println("Variable: "+id);
 :};
+
 var_type ::= STRING {: System.out.println("STRING");
+	Nodo ultimo = null;
     for (String v: var){
         if(sym.exists(v)){
             throw new VariableAlreadyDeclaredException("La variable \""+v+"\" Ya fue declarada.");
         }
         sym.insert(v,"STRING","",true);
+        ultimo = new Root("STRING", new Leaf(v), ultimo);
     }
+    RESULT = ultimo;
     var.clear();
 :};
+
 var_type ::= INT {: System.out.println("INT");
+    Nodo ultimo = null;
     for (String v: var){
         if(sym.exists(v)){
             throw new VariableAlreadyDeclaredException("La variable \""+v+"\" Ya fue declarada.");
         }
         sym.insert(v,"INT","",true);
+        ultimo = new Root("INT", new Leaf(v), ultimo);
     }
+    RESULT = ultimo;
     var.clear();
 :};
+
 var_type ::= FLOAT {: System.out.println("FLOAT");
+	Nodo ultimo = null;
     for (String v: var){
         if(sym.exists(v)){
             throw new VariableAlreadyDeclaredException("La variable \""+v+"\" Ya fue declarada.");
         }
         sym.insert(v,"FLOAT","",true);
+        ultimo = new Root("FLOAT", new Leaf(v), ultimo);
+
     }
+    RESULT = ultimo;
     var.clear();
 :};
 
 // Conditions
-condition_sentence ::= expression AND expression {: System.out.println("AND"); :};
-condition_sentence ::= expression OR expression {: System.out.println("OR"); :};
-condition_sentence ::= NOT expression {: System.out.println("NOT"); :};
-condition_sentence ::= expression IN OPEN_SQUARE_BRACKET list_values CLOSE_SQUARE_BRACKET {: System.out.println("IN"); :};
-condition_sentence ::= expression {: System.out.println("Condition"); :};
+condition_sentence ::= expression:e1 AND expression:e2 {:
+	System.out.println("AND");
+	RESULT = new Root("AND", e1, e2);
+:};
 
-list_values ::= expression COMMA list_values {: System.out.println("List value"); :};
-list_values ::= expression {: System.out.println("Last list value"); :};
+condition_sentence ::= expression:e1 OR expression:e2 {:
+	System.out.println("OR");
+	RESULT = new Root("OR", e1, e2);
+:};
+
+condition_sentence ::= NOT expression:e {:
+	System.out.println("NOT");
+	RESULT = new Root("NOT", e, null);
+:};
+
+condition_sentence ::= expression:e IN OPEN_SQUARE_BRACKET list_values:l_v CLOSE_SQUARE_BRACKET {:
+	System.out.println("IN");
+ 	RESULT = new Root("IN", e, l_v);
+:};
+
+condition_sentence ::= expression:e {:
+	System.out.println("Condition");
+	RESULT = e;
+:};
+
+list_values ::= expression:e COMMA list_values:l_v {:
+	System.out.println("List value");
+	RESULT = new Root("LIST_VALUE", e, l_v);
+:};
+
+list_values ::= expression:e {:
+	System.out.println("Last list value");
+	RESULT = e;
+:};
 
 // If/else condition
-sentence ::= if_sentence {: System.out.println("IF"); :};
-if_sentence ::= IF OPEN_BRACKET condition_sentence CLOSE_BRACKET OPEN_CURLY_BRACKET block CLOSE_CURLY_BRACKET {: System.out.println("If sentence"); :};
-if_sentence ::= IF OPEN_BRACKET condition_sentence CLOSE_BRACKET OPEN_CURLY_BRACKET block CLOSE_CURLY_BRACKET else_sentence {: System.out.println("If with else sentence"); :};
-else_sentence ::= ELSE OPEN_CURLY_BRACKET block CLOSE_CURLY_BRACKET {: System.out.println("Else sentence"); :};
+sentence ::= if_sentence:if_s {:
+	System.out.println("IF");
+	RESULT = if_s;
+:};
+
+if_sentence ::= IF OPEN_BRACKET condition_sentence:c_s CLOSE_BRACKET OPEN_CURLY_BRACKET block:b CLOSE_CURLY_BRACKET {:
+	System.out.println("If sentence");
+	RESULT = new Root("IF", c_s, b);
+:};
+
+if_sentence ::= IF OPEN_BRACKET condition_sentence:c_s CLOSE_BRACKET OPEN_CURLY_BRACKET block:b CLOSE_CURLY_BRACKET else_sentence:e_s {:
+	System.out.println("If with else sentence");
+	Nodo body_if = new Root("BODY_IF", b, e_s);
+ 	RESULT = new Root("IF_ELSE", c_s, body_if);
+:};
+else_sentence ::= ELSE OPEN_CURLY_BRACKET block:b CLOSE_CURLY_BRACKET {:
+	System.out.println("Else sentence");
+	RESULT = b;
+:};
 
 // While
-sentence ::= while_sentence {: System.out.println("While"); :};
-while_sentence ::= WHILE OPEN_BRACKET condition_sentence CLOSE_BRACKET while_line {: System.out.println("While sentence"); :};
-while_sentence ::= WHILE OPEN_BRACKET condition_sentence CLOSE_BRACKET DO while_line {: System.out.println("While-do sentence"); :};
-while_line ::= OPEN_CURLY_BRACKET block CLOSE_CURLY_BRACKET {: System.out.println("While line"); :};
+sentence ::= while_sentence:w_s {:
+	System.out.println("While");
+	RESULT = w_s;
+:};
+while_sentence ::= WHILE OPEN_BRACKET condition_sentence:c_s CLOSE_BRACKET while_line:w_l {:
+	System.out.println("While sentence");
+	RESULT = new Root ("WHILE", c_s, w_l);
+:};
+
+
+while_sentence ::= WHILE OPEN_BRACKET condition_sentence:c_s CLOSE_BRACKET DO while_line:w_l {:
+	System.out.println("While-do sentence");
+	RESULT = new Root ("WHILE-DO", w_l, c_s);
+:};
+while_line ::= OPEN_CURLY_BRACKET block:b CLOSE_CURLY_BRACKET {:
+	System.out.println("While line");
+	RESULT = b;
+:};
 
 // For
-sentence ::= for_sentence {: System.out.println("FOR"); :};
-for_sentence ::= FOR OPEN_BRACKET IDENTIFIER ASSIG expression TO expression CLOSE_BRACKET opt_step OPEN_CURLY_BRACKET block CLOSE_CURLY_BRACKET NEXT IDENTIFIER {: System.out.println("For sentence"); :};
-opt_step ::= STEP expression;
-opt_step ::= ;
+sentence ::= for_sentence:f_s {:
+	System.out.println("FOR");
+	RESULT = f_s;
+:};
+for_sentence ::= FOR OPEN_BRACKET IDENTIFIER:id ASSIG expression:from TO expression:to CLOSE_BRACKET opt_step:o_s OPEN_CURLY_BRACKET block:b CLOSE_CURLY_BRACKET NEXT IDENTIFIER {:
+	System.out.println("For sentence");
+
+	Nodo var_inic_for = new Leaf(id.toString());
+	Nodo range_for = new Root("range_for", from, to);
+	Nodo data_for = new Root("data_for", b, o_s);
+	RESULT = new Root("FOR", var_inic_for, new Root("FOR_BODY", range_for, data_for));
+:};
+opt_step ::= STEP expression:e {:
+	RESULT = e;
+:};
+opt_step ::= {:
+	RESULT = null;
+:};
 
 // Expressions
-expression ::= expression PLUS term {: System.out.println("+"); :};
-expression ::= expression SUB term {: System.out.println("-"); :};
-expression ::= expression GREATER_THAN term {: System.out.println(">"); :};
-expression ::= expression GREATER_THAN_OR_EQUAL term {: System.out.println(">="); :};
-expression ::= expression LESS_THAN term {: System.out.println("<"); :};
-expression ::= expression LESS_THAN_OR_EQUAL term {: System.out.println("<="); :};
-expression ::= expression NOT_EQUAL term {: System.out.println("!="); :};
-expression ::= expression EQUAL term {: System.out.println("=="); :};
-expression ::= term {: System.out.println("Expression = Term"); :};
-term ::= term MULT factor {: System.out.println("*"); :};
-term ::= term DIV factor {: System.out.println("/"); :};
-term ::= term MOD factor {: System.out.println("%"); :};
-term ::= factor {: System.out.println("Term = factor"); :};
-factor ::= IDENTIFIER:id  {: System.out.println("Id: " + id); :};
+expression ::= expression:e PLUS term:t {:
+	System.out.println("+");
+	RESULT = new Root("+", e, t);
+:};
+
+expression ::= expression:e SUB term:t {:
+	System.out.println("-");
+	RESULT = new Root("-", e, t);
+:};
+
+
+expression ::= expression:e GREATER_THAN term:t {:
+	RESULT = new Root(">", e, t);
+	System.out.println(">");
+:};
+
+expression ::= expression:e GREATER_THAN_OR_EQUAL term:t {:
+	System.out.println(">=");
+	RESULT = new Root(">=", e, t);
+:};
+
+expression ::= expression:e LESS_THAN term:t {:
+	System.out.println("<");
+	RESULT = new Root("<", e, t);
+:};
+
+expression ::= expression:e LESS_THAN_OR_EQUAL term:t {:
+	System.out.println("<=");
+	RESULT = new Root("<=", e, t);
+:};
+
+expression ::= expression:e NOT_EQUAL term:t {:
+	System.out.println("!=");
+	RESULT = new Root("!=", e, t);
+:};
+
+expression ::= expression:e EQUAL term:t {:
+	System.out.println("==");
+	RESULT = new Root("==", e, t);
+:};
+expression ::= term:t {:
+	System.out.println("Expression = Term");
+	RESULT = t;
+:};
+term ::= term:t MULT factor:f {:
+	System.out.println("*");
+	RESULT = new Root("*", t, f);
+:};
+term ::= term:t DIV factor:f {:
+	System.out.println("/");
+	RESULT = new Root("/", t, f);
+:};
+term ::= term:t MOD factor:f {:
+	System.out.println("%");
+	RESULT = new Root("%", t, f);
+:};
+
+term ::= factor:f {:
+	System.out.println("Term = factor");
+	RESULT = f;
+:};
+
+factor ::= IDENTIFIER:id  {:
+	System.out.println("Id: " + id);
+	RESULT = new Leaf(id.toString());
+:};
 
 factor ::= FLOAT_CONSTANT:constant {:
     System.out.println("FLOAT Constant: " + constant );
     sym.insert(constant.toString(),"FLOAT",constant.toString(),false);
+    RESULT = new Leaf(constant.toString());
 :};
 factor ::= INTEGER_CONSTANT:constant {:
     System.out.println("INT Constant: " + constant );
     sym.insert(constant.toString(),"INT",constant.toString(),false);
+	RESULT = new Leaf(constant.toString());
 :};
 
-factor ::= OPEN_BRACKET expression CLOSE_BRACKET {: System.out.println("Factor = (Expression)"); :};
-
+factor ::= OPEN_BRACKET expression:e CLOSE_BRACKET {:
+	System.out.println("Factor = (Expression)");
+	RESULT = e;
+:};
 
 // Long
-factor ::= LONG OPEN_BRACKET OPEN_SQUARE_BRACKET list_values CLOSE_SQUARE_BRACKET CLOSE_BRACKET {:
-    System.out.println("Long function"); :};
+factor ::= LONG OPEN_BRACKET OPEN_SQUARE_BRACKET list_values:l_v CLOSE_SQUARE_BRACKET CLOSE_BRACKET {:
+    System.out.println("Long function");
+	RESULT = l_v;
+:};
