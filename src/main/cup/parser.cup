@@ -11,6 +11,113 @@ action code {:
 public ArrayList<String> var = new ArrayList<>();
 SymbolTable sym = SymbolTable.getSymbolTable();
 SyntacticTree synt = SyntacticTree.getSyntacticTree();
+
+public static class SemVal {
+    public final Nodo node;
+    public final String type;
+
+    public SemVal(Nodo node, String type) {
+        this.node = node;
+        this.type = type;
+    }
+}
+
+private String typeOfIdentifier(String id) {
+    return "UNKNOWN";
+}
+
+private boolean isNumeric(String type) {
+    return "INT".equals(type) || "FLOAT".equals(type);
+}
+
+private String numericResult(String left, String right) {
+    if ("FLOAT".equals(left) || "FLOAT".equals(right)) {
+        return "FLOAT";
+    }
+    return "INT";
+}
+
+private void requireNumeric(String op, String type) throws InvalidOperandException {
+    if ("UNKNOWN".equals(type)) {
+        return;
+    }
+    if (!isNumeric(type)) {
+        throw new InvalidOperandException("Operador " + op + " requiere operandos numericos. Tipo encontrado: " + type);
+    }
+}
+
+private void requireInt(String op, String type) throws InvalidOperandException {
+    if ("UNKNOWN".equals(type)) {
+        return;
+    }
+    if (!"INT".equals(type)) {
+        throw new InvalidOperandException("Operador " + op + " requiere operando INT. Tipo encontrado: " + type);
+    }
+}
+
+private void requireComparable(String op, String left, String right) throws InvalidOperandException {
+    if ("UNKNOWN".equals(left) || "UNKNOWN".equals(right)) {
+        return;
+    }
+    if (isNumeric(left) && isNumeric(right)) {
+        return;
+    }
+    if ("STRING".equals(left) && "STRING".equals(right)) {
+        return;
+    }
+    throw new InvalidOperandException("Tipos incompatibles para operador " + op + ": " + left + " y " + right);
+}
+
+private void requireAssignable(String targetType, String valueType, String id) throws TypeMismatchException {
+    if ("UNKNOWN".equals(targetType) || "UNKNOWN".equals(valueType)) {
+        return;
+    }
+    if (targetType.equals(valueType)) {
+        return;
+    }
+    if ("FLOAT".equals(targetType) && "INT".equals(valueType)) {
+        return;
+    }
+    throw new TypeMismatchException("No se puede asignar " + valueType + " a " + targetType + " en \"" + id + "\"");
+}
+
+private String mergeListType(String left, String right) throws InvalidOperandException {
+    if ("UNKNOWN".equals(left) || "UNKNOWN".equals(right)) {
+        return "UNKNOWN";
+    }
+    if (isNumeric(left) && isNumeric(right)) {
+        return numericResult(left, right);
+    }
+    if ("STRING".equals(left) && "STRING".equals(right)) {
+        return "STRING";
+    }
+    throw new InvalidOperandException("Tipos incompatibles en lista: " + left + " y " + right);
+}
+
+private void requireInType(String elementType, String listType) throws InvalidOperandException {
+    if ("UNKNOWN".equals(elementType) || "UNKNOWN".equals(listType)) {
+        return;
+    }
+    if ("STRING".equals(listType)) {
+        if (!"STRING".equals(elementType)) {
+            throw new InvalidOperandException("IN requiere STRING, encontrado: " + elementType);
+        }
+        return;
+    }
+    if ("FLOAT".equals(listType)) {
+        if (!isNumeric(elementType)) {
+            throw new InvalidOperandException("IN requiere numerico, encontrado: " + elementType);
+        }
+        return;
+    }
+    if ("INT".equals(listType)) {
+        if (!"INT".equals(elementType)) {
+            throw new InvalidOperandException("IN requiere INT, encontrado: " + elementType);
+        }
+        return;
+    }
+    throw new InvalidOperandException("Tipo de lista invalido para IN: " + listType);
+}
 :};
 
 // Terminals
@@ -64,9 +171,9 @@ non terminal Nodo program;
 non terminal Nodo block;
 non terminal Nodo sentence;
 non terminal Nodo assignment;
-non terminal Nodo expression;
-non terminal Nodo term;
-non terminal Nodo factor;
+non terminal SemVal expression;
+non terminal SemVal term;
+non terminal SemVal factor;
 non terminal Nodo init_sentence;
 non terminal Nodo init_line;
 non terminal Nodo var_list;
@@ -80,9 +187,9 @@ non terminal Nodo else_sentence;
 non terminal Nodo while_sentence;
 non terminal Nodo while_line;
 non terminal Nodo for_sentence;
-non terminal Nodo condition_sentence;
-non terminal Nodo list_values;
-non terminal Nodo opt_step;
+non terminal SemVal condition_sentence;
+non terminal SemVal list_values;
+non terminal SemVal opt_step;
 
 // Start Symbol Definition
 start with program;
@@ -113,6 +220,7 @@ write_sentence ::= WRITE OPEN_BRACKET write_line:w_l CLOSE_BRACKET {:
 
 write_line ::= IDENTIFIER:id {:
 	System.out.println("Write: " + id);
+	typeOfIdentifier(id.toString());
 	RESULT = new Leaf(id.toString());
 :};
 
@@ -136,6 +244,7 @@ read_sentence ::= READ OPEN_BRACKET read_line:r_l CLOSE_BRACKET {:
 
 read_line ::= IDENTIFIER:id {:
 	System.out.println("Read: " + id);
+	typeOfIdentifier(id.toString());
 	RESULT = new Leaf(id.toString());
 :};
 
@@ -147,16 +256,11 @@ sentence ::= assignment:a {:
 
 assignment ::= IDENTIFIER:id ASSIG expression:e {:
 	System.out.println("Assignment "+id+":= expression");
-	RESULT = new Root("ASSIG", new Leaf(id.toString()), e);
+	String targetType = typeOfIdentifier(id.toString());
+	requireAssignable(targetType, e.type, id.toString());
+	RESULT = new Root("ASSIG", new Leaf(id.toString()), e.node);
 :};
 
-assignment ::= IDENTIFIER:id ASSIG STRING_CONSTANT:constant {:
-    System.out.println("Assignment: "+id+":="+ constant);
-    String c = constant.toString();
-    sym.insert(c,"STRING",c,false);
-    sym.updateValue(id.toString(), c);
-    RESULT = new Root("ASSIG", new Leaf(id.toString()), new Leaf(c));
-:};
 
 // Init
 sentence ::= init_sentence:i_s {:
@@ -234,37 +338,45 @@ var_type ::= FLOAT {: System.out.println("FLOAT");
 // Conditions
 condition_sentence ::= expression:e1 AND expression:e2 {:
 	System.out.println("AND");
-	RESULT = new Root("AND", e1, e2);
+	requireInt("AND", e1.type);
+	requireInt("AND", e2.type);
+	RESULT = new SemVal(new Root("AND", e1.node, e2.node), "INT");
 :};
 
 condition_sentence ::= expression:e1 OR expression:e2 {:
 	System.out.println("OR");
-	RESULT = new Root("OR", e1, e2);
+	requireInt("OR", e1.type);
+	requireInt("OR", e2.type);
+	RESULT = new SemVal(new Root("OR", e1.node, e2.node), "INT");
 :};
 
 condition_sentence ::= NOT expression:e {:
 	System.out.println("NOT");
-	RESULT = new Root("NOT", e, null);
+	requireInt("NOT", e.type);
+	RESULT = new SemVal(new Root("NOT", e.node, null), "INT");
 :};
 
 condition_sentence ::= expression:e IN OPEN_SQUARE_BRACKET list_values:l_v CLOSE_SQUARE_BRACKET {:
 	System.out.println("IN");
- 	RESULT = new Root("IN", e, l_v);
+	requireInType(e.type, l_v.type);
+	RESULT = new SemVal(new Root("IN", e.node, l_v.node), "INT");
 :};
 
 condition_sentence ::= expression:e {:
 	System.out.println("Condition");
-	RESULT = e;
+	requireNumeric("COND", e.type);
+	RESULT = new SemVal(e.node, "INT");
 :};
 
 list_values ::= expression:e COMMA list_values:l_v {:
 	System.out.println("List value");
-	RESULT = new Root("LIST_VALUE", e, l_v);
+	String listType = mergeListType(e.type, l_v.type);
+	RESULT = new SemVal(new Root("LIST_VALUE", e.node, l_v.node), listType);
 :};
 
 list_values ::= expression:e {:
 	System.out.println("Last list value");
-	RESULT = e;
+	RESULT = new SemVal(e.node, e.type);
 :};
 
 // If/else condition
@@ -275,13 +387,13 @@ sentence ::= if_sentence:if_s {:
 
 if_sentence ::= IF OPEN_BRACKET condition_sentence:c_s CLOSE_BRACKET OPEN_CURLY_BRACKET block:b CLOSE_CURLY_BRACKET {:
 	System.out.println("If sentence");
-	RESULT = new Root("IF", c_s, b);
+	RESULT = new Root("IF", c_s.node, b);
 :};
 
 if_sentence ::= IF OPEN_BRACKET condition_sentence:c_s CLOSE_BRACKET OPEN_CURLY_BRACKET block:b CLOSE_CURLY_BRACKET else_sentence:e_s {:
 	System.out.println("If with else sentence");
 	Nodo body_if = new Root("BODY_IF", b, e_s);
- 	RESULT = new Root("IF_ELSE", c_s, body_if);
+	RESULT = new Root("IF_ELSE", c_s.node, body_if);
 :};
 else_sentence ::= ELSE OPEN_CURLY_BRACKET block:b CLOSE_CURLY_BRACKET {:
 	System.out.println("Else sentence");
@@ -295,13 +407,13 @@ sentence ::= while_sentence:w_s {:
 :};
 while_sentence ::= WHILE OPEN_BRACKET condition_sentence:c_s CLOSE_BRACKET while_line:w_l {:
 	System.out.println("While sentence");
-	RESULT = new Root ("WHILE", c_s, w_l);
+	RESULT = new Root ("WHILE", c_s.node, w_l);
 :};
 
 
 while_sentence ::= WHILE OPEN_BRACKET condition_sentence:c_s CLOSE_BRACKET DO while_line:w_l {:
 	System.out.println("While-do sentence");
-	RESULT = new Root ("WHILE-DO", w_l, c_s);
+	RESULT = new Root ("WHILE-DO", w_l, c_s.node);
 :};
 while_line ::= OPEN_CURLY_BRACKET block:b CLOSE_CURLY_BRACKET {:
 	System.out.println("While line");
@@ -313,12 +425,19 @@ sentence ::= for_sentence:f_s {:
 	System.out.println("FOR");
 	RESULT = f_s;
 :};
-for_sentence ::= FOR OPEN_BRACKET IDENTIFIER:id ASSIG expression:from TO expression:to CLOSE_BRACKET opt_step:o_s OPEN_CURLY_BRACKET block:b CLOSE_CURLY_BRACKET NEXT IDENTIFIER {:
+for_sentence ::= FOR OPEN_BRACKET IDENTIFIER:id ASSIG expression:from TO expression:to CLOSE_BRACKET opt_step:o_s OPEN_CURLY_BRACKET block:b CLOSE_CURLY_BRACKET NEXT IDENTIFIER:next_id {:
 	System.out.println("For sentence");
+	String varType = typeOfIdentifier(id.toString());
+	requireNumeric("FOR", varType);
+	requireAssignable(varType, from.type, id.toString());
+	requireAssignable(varType, to.type, id.toString());
+	if (o_s != null) {
+		requireAssignable(varType, o_s.type, id.toString());
+	}
 
 	Nodo var_inic_for = new Leaf(id.toString());
-	Nodo range_for = new Root("range_for", from, to);
-	Nodo data_for = new Root("data_for", b, o_s);
+	Nodo range_for = new Root("range_for", from.node, to.node);
+	Nodo data_for = new Root("data_for", b, o_s == null ? null : o_s.node);
 	RESULT = new Root("FOR", var_inic_for, new Root("FOR_BODY", range_for, data_for));
 :};
 opt_step ::= STEP expression:e {:
@@ -331,43 +450,53 @@ opt_step ::= {:
 // Expressions
 expression ::= expression:e PLUS term:t {:
 	System.out.println("+");
-	RESULT = new Root("+", e, t);
+	requireNumeric("+", e.type);
+	requireNumeric("+", t.type);
+	RESULT = new SemVal(new Root("+", e.node, t.node), numericResult(e.type, t.type));
 :};
 
 expression ::= expression:e SUB term:t {:
 	System.out.println("-");
-	RESULT = new Root("-", e, t);
+	requireNumeric("-", e.type);
+	requireNumeric("-", t.type);
+	RESULT = new SemVal(new Root("-", e.node, t.node), numericResult(e.type, t.type));
 :};
 
 
 expression ::= expression:e GREATER_THAN term:t {:
-	RESULT = new Root(">", e, t);
 	System.out.println(">");
+	requireComparable(">", e.type, t.type);
+	RESULT = new SemVal(new Root(">", e.node, t.node), "INT");
 :};
 
 expression ::= expression:e GREATER_THAN_OR_EQUAL term:t {:
 	System.out.println(">=");
-	RESULT = new Root(">=", e, t);
+	requireComparable(">=", e.type, t.type);
+	RESULT = new SemVal(new Root(">=", e.node, t.node), "INT");
 :};
 
 expression ::= expression:e LESS_THAN term:t {:
 	System.out.println("<");
-	RESULT = new Root("<", e, t);
+	requireComparable("<", e.type, t.type);
+	RESULT = new SemVal(new Root("<", e.node, t.node), "INT");
 :};
 
 expression ::= expression:e LESS_THAN_OR_EQUAL term:t {:
 	System.out.println("<=");
-	RESULT = new Root("<=", e, t);
+	requireComparable("<=", e.type, t.type);
+	RESULT = new SemVal(new Root("<=", e.node, t.node), "INT");
 :};
 
 expression ::= expression:e NOT_EQUAL term:t {:
 	System.out.println("!=");
-	RESULT = new Root("!=", e, t);
+	requireComparable("!=", e.type, t.type);
+	RESULT = new SemVal(new Root("!=", e.node, t.node), "INT");
 :};
 
 expression ::= expression:e EQUAL term:t {:
 	System.out.println("==");
-	RESULT = new Root("==", e, t);
+	requireComparable("==", e.type, t.type);
+	RESULT = new SemVal(new Root("==", e.node, t.node), "INT");
 :};
 expression ::= term:t {:
 	System.out.println("Expression = Term");
@@ -375,15 +504,21 @@ expression ::= term:t {:
 :};
 term ::= term:t MULT factor:f {:
 	System.out.println("*");
-	RESULT = new Root("*", t, f);
+	requireNumeric("*", t.type);
+	requireNumeric("*", f.type);
+	RESULT = new SemVal(new Root("*", t.node, f.node), numericResult(t.type, f.type));
 :};
 term ::= term:t DIV factor:f {:
 	System.out.println("/");
-	RESULT = new Root("/", t, f);
+	requireNumeric("/", t.type);
+	requireNumeric("/", f.type);
+	RESULT = new SemVal(new Root("/", t.node, f.node), numericResult(t.type, f.type));
 :};
 term ::= term:t MOD factor:f {:
 	System.out.println("%");
-	RESULT = new Root("%", t, f);
+	requireInt("%", t.type);
+	requireInt("%", f.type);
+	RESULT = new SemVal(new Root("%", t.node, f.node), "INT");
 :};
 
 term ::= factor:f {:
@@ -393,18 +528,26 @@ term ::= factor:f {:
 
 factor ::= IDENTIFIER:id  {:
 	System.out.println("Id: " + id);
-	RESULT = new Leaf(id.toString());
+	String type = typeOfIdentifier(id.toString());
+	RESULT = new SemVal(new Leaf(id.toString()), type);
 :};
 
 factor ::= FLOAT_CONSTANT:constant {:
     System.out.println("FLOAT Constant: " + constant );
     sym.insert(constant.toString(),"FLOAT",constant.toString(),false);
-    RESULT = new Leaf(constant.toString());
+	RESULT = new SemVal(new Leaf(constant.toString()), "FLOAT");
 :};
 factor ::= INTEGER_CONSTANT:constant {:
     System.out.println("INT Constant: " + constant );
     sym.insert(constant.toString(),"INT",constant.toString(),false);
-	RESULT = new Leaf(constant.toString());
+	RESULT = new SemVal(new Leaf(constant.toString()), "INT");
+:};
+
+factor ::= STRING_CONSTANT:constant {:
+    System.out.println("STRING Constant: " + constant );
+    String c = constant.toString();
+    sym.insert(c,"STRING",c,false);
+    RESULT = new SemVal(new Leaf(c), "STRING");
 :};
 
 factor ::= OPEN_BRACKET expression:e CLOSE_BRACKET {:
@@ -415,5 +558,5 @@ factor ::= OPEN_BRACKET expression:e CLOSE_BRACKET {:
 // Long
 factor ::= LONG OPEN_BRACKET OPEN_SQUARE_BRACKET list_values:l_v CLOSE_SQUARE_BRACKET CLOSE_BRACKET {:
     System.out.println("Long function");
-	RESULT = l_v;
+	RESULT = new SemVal(new Root("LONG", l_v.node, null), "INT");
 :};
