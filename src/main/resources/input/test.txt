@@ -6,6 +6,7 @@ init {
     i3 : Int
     i : Int
     a : Int
+    x : Int
 }
 
 i1 := 1

@@ -1,2 +1,6 @@
+init {
+    var1 : Int
+}
+
 write(var1)  #+ var1 es una variable numérica definida previamente +#
 write("ewr")  #+ "ewr" es una cte string +#

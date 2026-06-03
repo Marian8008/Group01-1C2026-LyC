@@ -1,0 +1,7 @@
+init {
+    entero : Int
+    flotante : Float
+    texto : String
+}
+
+entero := "cadena"

@@ -19,6 +19,13 @@ public final class SymbolTable {
     return symt;
   }
 
+  public static void reset() {
+    if (symt != null) {
+      symt.table.clear();
+      symt.stringCounter = 0;
+    }
+  }
+
   public String insert(String name, String type, String value, boolean isID) {
     if (!isID) {
       type = "CTE_" + type;

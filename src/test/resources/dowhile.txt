@@ -1,3 +1,7 @@
+init {
+    x : Int
+}
+
 while (x IN [1,2,3])
 do
 {

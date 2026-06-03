@@ -22,8 +22,11 @@ public static class SemVal {
     }
 }
 
-private String typeOfIdentifier(String id) {
-    return "UNKNOWN";
+private String typeOfIdentifier(String id) throws VariableNotDeclaredException {
+    if (!sym.exists(id)) {
+        throw new VariableNotDeclaredException("La variable \"" + id + "\" no fue declarada.");
+    }
+    return sym.get(id).getType();
 }
 
 private boolean isNumeric(String type) {
@@ -38,27 +41,18 @@ private String numericResult(String left, String right) {
 }
 
 private void requireNumeric(String op, String type) throws InvalidOperandException {
-    if ("UNKNOWN".equals(type)) {
-        return;
-    }
     if (!isNumeric(type)) {
         throw new InvalidOperandException("Operador " + op + " requiere operandos numericos. Tipo encontrado: " + type);
     }
 }
 
 private void requireInt(String op, String type) throws InvalidOperandException {
-    if ("UNKNOWN".equals(type)) {
-        return;
-    }
     if (!"INT".equals(type)) {
         throw new InvalidOperandException("Operador " + op + " requiere operando INT. Tipo encontrado: " + type);
     }
 }
 
 private void requireComparable(String op, String left, String right) throws InvalidOperandException {
-    if ("UNKNOWN".equals(left) || "UNKNOWN".equals(right)) {
-        return;
-    }
     if (isNumeric(left) && isNumeric(right)) {
         return;
     }
@@ -69,9 +63,6 @@ private void requireComparable(String op, String left, String right) throws Inva
 }
 
 private void requireAssignable(String targetType, String valueType, String id) throws TypeMismatchException {
-    if ("UNKNOWN".equals(targetType) || "UNKNOWN".equals(valueType)) {
-        return;
-    }
     if (targetType.equals(valueType)) {
         return;
     }
@@ -82,9 +73,6 @@ private void requireAssignable(String targetType, String valueType, String id) t
 }
 
 private String mergeListType(String left, String right) throws InvalidOperandException {
-    if ("UNKNOWN".equals(left) || "UNKNOWN".equals(right)) {
-        return "UNKNOWN";
-    }
     if (isNumeric(left) && isNumeric(right)) {
         return numericResult(left, right);
     }
@@ -95,9 +83,6 @@ private String mergeListType(String left, String right) throws InvalidOperandExc
 }
 
 private void requireInType(String elementType, String listType) throws InvalidOperandException {
-    if ("UNKNOWN".equals(elementType) || "UNKNOWN".equals(listType)) {
-        return;
-    }
     if ("STRING".equals(listType)) {
         if (!"STRING".equals(elementType)) {
             throw new InvalidOperandException("IN requiere STRING, encontrado: " + elementType);

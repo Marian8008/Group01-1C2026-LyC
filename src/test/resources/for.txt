@@ -1,3 +1,7 @@
+init {
+    i : Int
+}
+
 for (i := 1 TO 5)
 {
    read(i)

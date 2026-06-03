@@ -2,6 +2,7 @@ package lyc.compiler;
 
 import java_cup.runtime.Symbol;
 import lyc.compiler.factories.ParserFactory;
+import lyc.compiler.symboltable.SymbolTable;
 import org.apache.commons.io.IOUtils;
 import org.junit.jupiter.api.Test;
 
@@ -13,12 +14,17 @@ import java.nio.charset.StandardCharsets;
 import static com.google.common.truth.Truth.assertThat;
 import static lyc.compiler.Constants.EXAMPLES_ROOT_DIRECTORY;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class ParserTest {
 
   @Test
   void assignmentWithExpression() throws Exception {
-    compilationSuccessful("c:=d*(e-21)/4");
+    compilationSuccessful(
+        "init {\n"
+            + "    c, d, e : Int\n"
+            + "}\n"
+            + "c:=d*(e-21)/4\n");
   }
 
   @Test
@@ -117,6 +123,41 @@ class ParserTest {
     compilationSuccessful(readFromResources("long.txt"));
   }
 
+  @Test
+  void semanticErrors() throws Exception {
+    System.out.println("### Semantic errors test ###");
+    Exception exception = assertThrows(Exception.class, () -> scan(readFromResources("semantic-errors.txt")));
+    assertTrue(exception.getMessage().contains("No se puede asignar STRING a INT en \"entero\""));
+  }
+
+  @Test
+  void semanticErrorUndeclaredVariable() {
+    System.out.println("### Semantic undeclared variable test ###");
+    Exception exception = assertThrows(
+        Exception.class,
+        () -> scan(
+            "init {\n"
+                + "    a : Int\n"
+                + "}\n"
+                + "b := 1\n"));
+    assertTrue(exception.getMessage().contains("La variable \"b\" no fue declarada."));
+  }
+
+  @Test
+  void semanticErrorInvalidOperand() {
+    System.out.println("### Semantic invalid operand test ###");
+    Exception exception = assertThrows(
+        Exception.class,
+        () -> scan(
+            "init {\n"
+                + "    a : String\n"
+                + "}\n"
+                + "if (a AND 1) {\n"
+                + "    write(\"x\")\n"
+                + "}\n"));
+    assertTrue(exception.getMessage().contains("Operador AND requiere operando INT. Tipo encontrado: STRING"));
+  }
+
   private void compilationSuccessful(String input) throws Exception {
     assertThat(scan(input).sym).isEqualTo(ParserSym.EOF);
   }
@@ -127,6 +168,7 @@ class ParserTest {
 
   private Symbol scan(String input) throws Exception {
     System.out.println(input);
+    SymbolTable.reset();
     return ParserFactory.create(input).parse();
   }
 

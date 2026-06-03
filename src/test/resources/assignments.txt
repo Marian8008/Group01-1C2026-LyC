@@ -1,3 +1,8 @@
+init {
+    a : Float
+    b : String
+}
+
 a := 99999.99
 a := 99.
 a := .9999

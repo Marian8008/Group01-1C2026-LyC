@@ -1,3 +1,8 @@
+init {
+    a : Int
+    b : Int
+}
+
 if (a > b)
 {
     write("a es mas grande que b")

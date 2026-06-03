@@ -1,1 +1,6 @@
+init {
+    a : Int
+    x : Int
+}
+
 a := long([1+2, 3*4, x])
