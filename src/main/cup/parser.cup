@@ -82,6 +82,21 @@ private String mergeListType(String left, String right) throws InvalidOperandExc
     throw new InvalidOperandException("Tipos incompatibles en lista: " + left + " y " + right);
 }
 
+private int countList(Nodo n) {
+    if (n == null) return 0;
+
+    if (n instanceof Leaf) return 1;
+
+    Root r = (Root) n;
+
+    if (r.getOperador().equals("LIST_VALUE")) {
+        return countList(r.getIzq()) + countList(r.getDer());
+    }
+
+    // un solo elemento
+    return 1;
+}
+
 private void requireInType(String elementType, String listType) throws InvalidOperandException {
     if ("STRING".equals(listType)) {
         if (!"STRING".equals(elementType)) {
@@ -212,8 +227,8 @@ write_line ::= IDENTIFIER:id {:
 write_line ::= STRING_CONSTANT:constant {:
     System.out.println("Write: " + constant);
     String c = constant.toString();
-    sym.insert(c,"STRING",c,false);
-    RESULT = new Leaf(c);
+    String symbolName = sym.insert(c,"STRING",c,false);
+    RESULT = new Leaf(symbolName);
 :};
 
 // Read
@@ -531,8 +546,8 @@ factor ::= INTEGER_CONSTANT:constant {:
 factor ::= STRING_CONSTANT:constant {:
     System.out.println("STRING Constant: " + constant );
     String c = constant.toString();
-    sym.insert(c,"STRING",c,false);
-    RESULT = new SemVal(new Leaf(c), "STRING");
+    String symbolName = sym.insert(c,"STRING",c,false);
+    RESULT = new SemVal(new Leaf(symbolName), "STRING");
 :};
 
 factor ::= OPEN_BRACKET expression:e CLOSE_BRACKET {:
@@ -543,5 +558,6 @@ factor ::= OPEN_BRACKET expression:e CLOSE_BRACKET {:
 // Long
 factor ::= LONG OPEN_BRACKET OPEN_SQUARE_BRACKET list_values:l_v CLOSE_SQUARE_BRACKET CLOSE_BRACKET {:
     System.out.println("Long function");
-	RESULT = new SemVal(new Root("LONG", l_v.node, null), "INT");
+	int size = countList(l_v.node);
+	RESULT = new SemVal(new Leaf(String.valueOf(size)), "INT");
 :};

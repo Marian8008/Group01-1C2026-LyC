@@ -1,35 +1,50 @@
 package lyc.compiler.files;
 
 import lyc.compiler.syntactictree.*;
+import lyc.compiler.symboltable.SymbolLYC;
+import lyc.compiler.symboltable.SymbolTable;
 
 import java.io.FileWriter;
 import java.io.IOException;
+import java.io.StringWriter;
+import java.util.HashMap;
 import java.util.LinkedHashSet;
+import java.util.LinkedHashMap;
+import java.util.Map;
 import java.util.Set;
 
 public class AsmCodeGenerator implements FileGenerator {
 
     private FileWriter writer;
+    private StringWriter codeWriter;
     private int aux = 1;
     private int label = 1;
-    private Set<String> variables = new LinkedHashSet<>();
-    private Set<String> constantes = new LinkedHashSet<>();
+    private Set<String> intVariables = new LinkedHashSet<>();
+    private Set<String> floatVariables = new LinkedHashSet<>();
+    private Set<String> stringVariables = new LinkedHashSet<>();
+    private Map<String, String> intConstants = new LinkedHashMap<>();
+    private Map<String, String> floatConstants = new LinkedHashMap<>();
+    private Map<String, String> stringConstants = new LinkedHashMap<>();
+    private Map<String, String> constantLabels = new HashMap<>();
     private Set<String> auxiliares = new LinkedHashSet<>();
+    private final SymbolTable symbolTable = SymbolTable.getSymbolTable();
 
     @Override
     public void generate(FileWriter fileWriter) throws IOException {
         writer = fileWriter;
+        codeWriter = new StringWriter();
 
         Nodo root = SyntacticTree.getSyntacticTree().getRoot();
 
         // Primero recolectar variables y constantes
         recolectarVariables(root);
 
-        // Escribir estructura del programa
-        writeHeader();
-
-        // Generar código
+        // Generar código en buffer antes de escribir .DATA
         recorrer(root);
+
+        // Escribir estructura del programa y el código generado
+        writeHeader();
+        writer.write(codeWriter.toString());
 
         // Escribir footer
         writeFooter();
@@ -37,9 +52,12 @@ public class AsmCodeGenerator implements FileGenerator {
 
     private void writeHeader() throws IOException {
 
+        writer.write("include macros2.asm\n");
+        writer.write("include number.asm\n\n");
         writer.write(".MODEL LARGE\n");
         writer.write(".386\n");
-        writer.write(".STACK 200h\n\n");
+        writer.write(".STACK 200h\n");
+        writer.write("MAXTEXTSIZE equ 50\n\n");
 
         writer.write(".DATA\n");
 
@@ -59,16 +77,28 @@ public class AsmCodeGenerator implements FileGenerator {
     }
 
     private void writeDataDeclarations() throws IOException {
-        // Declarar variables (en orden de aparición)
-        for (String var : variables) {
+        // Declarar variables en el orden de aparición y con el tipo correcto
+        for (String var : intVariables) {
             writer.write(var + " dd ?\n");
+        }
+        for (String var : floatVariables) {
+            writer.write(var + " dd ?\n");
+        }
+        for (String var : stringVariables) {
+            writer.write(var + " db MAXTEXTSIZE dup(?), '$'\n");
         }
 
         writer.write("\n"); // Separador
 
-        // Declarar constantes (en orden de aparición)
-        for (String cte : constantes) {
-            writer.write("_" + cte + " dd " + cte + "\n");
+        // Declarar constantes en el orden de aparición y con el tipo correcto
+        for (Map.Entry<String, String> entry : intConstants.entrySet()) {
+            writer.write(entry.getKey() + " dd " + entry.getValue() + "\n");
+        }
+        for (Map.Entry<String, String> entry : floatConstants.entrySet()) {
+            writer.write(entry.getKey() + " dd " + entry.getValue() + "\n");
+        }
+        for (Map.Entry<String, String> entry : stringConstants.entrySet()) {
+            writer.write(entry.getKey() + " db \"" + entry.getValue() + "\", '$'\n");
         }
 
         writer.write("\n"); // Separador
@@ -86,21 +116,143 @@ public class AsmCodeGenerator implements FileGenerator {
         writer.write("END START\n");
     }
 
+    private void writeCode(String text) {
+        if (codeWriter != null) {
+            codeWriter.write(text);
+        }
+    }
+
+    private boolean isStringLiteral(String valor) {
+        return valor != null && valor.startsWith("\"") && valor.endsWith("\"");
+    }
+
+    private boolean isIntegerLiteral(String valor) {
+        return valor != null && valor.matches("-?\\d+");
+    }
+
+    private boolean isFloatLiteral(String valor) {
+        return valor != null && valor.matches("-?\\d+\\.\\d+");
+    }
+
+    private String createConstantLabel(String valor) {
+        String label = valor.replaceFirst("^-", "neg").replace('.', 'x');
+        label = "_" + label;
+        String base = label;
+        int suffix = 1;
+        while (intConstants.containsKey(label) || floatConstants.containsKey(label)
+                || stringConstants.containsKey(label)) {
+            label = base + "_" + suffix++;
+        }
+        return label;
+    }
+
+    private void addIntConstant(String valor) {
+        if (!constantLabels.containsKey(valor)) {
+            String label = createConstantLabel(valor);
+            constantLabels.put(valor, label);
+            intConstants.put(label, valor + ".0");
+        }
+    }
+
+    private void addFloatConstant(String valor) {
+        if (!constantLabels.containsKey(valor)) {
+            String label = createConstantLabel(valor);
+            constantLabels.put(valor, label);
+            floatConstants.put(label, valor);
+        }
+    }
+
+    private String normalizeStringValue(String valor) {
+        if (valor == null)
+            return "\"\"";
+        if (valor.startsWith("\"") && valor.endsWith("\"")) {
+            return valor;
+        }
+        return "\"" + valor + "\"";
+    }
+
+    private void addStringConstant(String valor) {
+        if (!constantLabels.containsKey(valor)) {
+            String label = "_str" + (stringConstants.size() + 1);
+            constantLabels.put(valor, label);
+            stringConstants.put(label, normalizeStringValue(valor));
+        }
+    }
+
     private void recolectarVariables(Nodo nodo) {
-        if (nodo == null) return;
+        if (nodo == null)
+            return;
+
+        if (nodo instanceof Root) {
+            Root r = (Root) nodo;
+
+            if ("ASSIG".equals(r.getOperador())) {
+
+                String izq = (r.getIzq() instanceof Leaf)
+                        ? ((Leaf) r.getIzq()).getValor()
+                        : r.getIzq().toString();
+
+                String der = (r.getDer() instanceof Leaf)
+                        ? ((Leaf) r.getDer()).getValor()
+                        : r.getDer().toString();
+
+                System.out.println(
+                        "ASSIG -> IZQ=" + izq +
+                                " DER=" + der);
+            }
+        }
 
         if (nodo instanceof Leaf) {
             String valor = ((Leaf) nodo).getValor();
 
-            // Ignorar si es texto (contiene espacios y no es número)
-            if (valor.contains(" ") && !valor.matches("-?\\d+")) {
-                return;  // No lo tratamos como variable ni constante
+            if (isStringLiteral(valor)) {
+                addStringConstant(valor);
+                return;
+            }
+            if (isIntegerLiteral(valor)) {
+                addIntConstant(valor);
+                return;
+            }
+            if (isFloatLiteral(valor)) {
+                addFloatConstant(valor);
+                return;
             }
 
-            if (valor.matches("-?\\d+")) {
-                constantes.add(valor);
-            } else if (!valor.startsWith("\"")) {
-                variables.add(valor);
+            if (symbolTable.exists(valor)) {
+                SymbolLYC symbol = symbolTable.get(valor);
+                if (symbol != null) {
+                    switch (symbol.getType()) {
+                        case "INT":
+                            intVariables.add(valor);
+                            break;
+                        case "FLOAT":
+                            floatVariables.add(valor);
+                            break;
+                        case "STRING":
+                            stringVariables.add(valor);
+                            break;
+                        case "CTE_INT":
+                            if (!constantLabels.containsKey(valor)) {
+                                constantLabels.put(valor, valor);
+                                intConstants.put(valor, symbol.getValue() + ".0");
+                            }
+                            break;
+                        case "CTE_FLOAT":
+                            if (!constantLabels.containsKey(valor)) {
+                                constantLabels.put(valor, valor);
+                                floatConstants.put(valor, symbol.getValue());
+                            }
+                            break;
+                        case "CTE_STRING":
+                            if (!constantLabels.containsKey(valor)) {
+                                constantLabels.put(valor, valor);
+                                stringConstants.put(valor, symbol.getValue());
+                            }
+                            break;
+                        default:
+                            break;
+                    }
+                }
             }
         } else {
             Root r = (Root) nodo;
@@ -161,10 +313,21 @@ public class AsmCodeGenerator implements FileGenerator {
         return "";
     }
 
+    private boolean isNumericLiteral(String valor) {
+        return valor != null && valor.matches("-?\\d+(\\.\\d+)?");
+    }
+
+    private String getConstantLabel(String valor) {
+        if (valor == null)
+            return "";
+        return constantLabels.getOrDefault(valor, valor);
+    }
+
     private String formatearOperando(String valor) {
-        if (valor == null) return "";
-        if (valor.matches("-?\\d+")) {
-            return "_" + valor;  // 20 -> _20
+        if (valor == null)
+            return "";
+        if (isStringLiteral(valor) || isNumericLiteral(valor)) {
+            return getConstantLabel(valor);
         }
         return valor;
     }
@@ -172,12 +335,15 @@ public class AsmCodeGenerator implements FileGenerator {
     private String suma(Root r) throws IOException {
         String a = recorrer(r.getIzq());
         String b = recorrer(r.getDer());
+        if (a.isEmpty() || b.isEmpty())
+            return "";
         String t = crearAuxiliar();
 
-        writer.write("MOV R1, " + a + "\n");
-        writer.write("ADD R1, " + b + "\n");
-        writer.write("MOV " + t + ", R1\n");
-        writer.write("\n");
+        writeCode("FLD " + a + "\n");
+        writeCode("FLD " + b + "\n");
+        writeCode("FADD\n");
+        writeCode("FSTP " + t + "\n");
+        writeCode("\n");
 
         return t;
     }
@@ -185,12 +351,15 @@ public class AsmCodeGenerator implements FileGenerator {
     private String resta(Root r) throws IOException {
         String a = recorrer(r.getIzq());
         String b = recorrer(r.getDer());
+        if (a.isEmpty() || b.isEmpty())
+            return "";
         String t = crearAuxiliar();
 
-        writer.write("MOV R1, " + a + "\n");
-        writer.write("SUB R1, " + b + "\n");
-        writer.write("MOV " + t + ", R1\n");
-        writer.write("\n");
+        writeCode("FLD " + a + "\n");
+        writeCode("FLD " + b + "\n");
+        writeCode("FSUB\n");
+        writeCode("FSTP " + t + "\n");
+        writeCode("\n");
 
         return t;
     }
@@ -198,12 +367,15 @@ public class AsmCodeGenerator implements FileGenerator {
     private String mult(Root r) throws IOException {
         String a = recorrer(r.getIzq());
         String b = recorrer(r.getDer());
+        if (a.isEmpty() || b.isEmpty())
+            return "";
         String t = crearAuxiliar();
 
-        writer.write("MOV R1, " + a + "\n");
-        writer.write("MUL R1, " + b + "\n");  // MUL en lugar de IMUL
-        writer.write("MOV " + t + ", R1\n");
-        writer.write("\n");
+        writeCode("FLD " + a + "\n");
+        writeCode("FLD " + b + "\n");
+        writeCode("FMUL\n");
+        writeCode("FSTP " + t + "\n");
+        writeCode("\n");
 
         return t;
     }
@@ -211,12 +383,15 @@ public class AsmCodeGenerator implements FileGenerator {
     private String div(Root r) throws IOException {
         String a = recorrer(r.getIzq());
         String b = recorrer(r.getDer());
+        if (a.isEmpty() || b.isEmpty())
+            return "";
         String t = crearAuxiliar();
 
-        writer.write("MOV R1, " + a + "\n");
-        writer.write("DIV R1, " + b + "\n");
-        writer.write("MOV " + t + ", R1\n");
-        writer.write("\n");
+        writeCode("FLD " + a + "\n");
+        writeCode("FLD " + b + "\n");
+        writeCode("FDIV\n");
+        writeCode("FSTP " + t + "\n");
+        writeCode("\n");
 
         return t;
     }
@@ -225,9 +400,13 @@ public class AsmCodeGenerator implements FileGenerator {
         String variable = ((Leaf) r.getIzq()).getValor();
         String valor = recorrer(r.getDer());
 
-        writer.write("MOV R1, " + valor + "\n");
-        writer.write("MOV " + variable + ", R1\n");
-        writer.write("\n");
+        if (variable == null || variable.isEmpty() || valor.isEmpty()) {
+            return "";
+        }
+
+        writeCode("FLD " + valor + "\n");
+        writeCode("FSTP " + variable + "\n");
+        writeCode("\n");
 
         return variable;
     }
@@ -236,13 +415,15 @@ public class AsmCodeGenerator implements FileGenerator {
 
         String a = recorrer(r.getIzq());
         String b = recorrer(r.getDer());
+        if (a.isEmpty() || b.isEmpty())
+            return "";
         String t = crearAuxiliar();
 
-        writer.write("MOV AX," + a + "\n");
-        writer.write("CWD\n");
-        writer.write("MOV BX," + b + "\n");
-        writer.write("IDIV BX\n");
-        writer.write("MOV " + t + ",DX\n\n");
+        writeCode("MOV AX," + a + "\n");
+        writeCode("CWD\n");
+        writeCode("MOV BX," + b + "\n");
+        writeCode("IDIV BX\n");
+        writeCode("MOV " + t + ",DX\n\n");
 
         return t;
     }
@@ -252,15 +433,15 @@ public class AsmCodeGenerator implements FileGenerator {
         String inicio = "L" + label++;
         String fin = "L" + label++;
 
-        writer.write(inicio + ":\n");
+        writeCode(inicio + ":\n");
 
         generarCondicion(r.getIzq(), fin);
 
         recorrer(r.getDer());
 
-        writer.write("JMP " + inicio + "\n");
+        writeCode("JMP " + inicio + "\n");
 
-        writer.write(fin + ":\n\n");
+        writeCode(fin + ":\n\n");
 
         return "";
     }
@@ -269,8 +450,8 @@ public class AsmCodeGenerator implements FileGenerator {
         String fin = "L" + label++;
         generarCondicion(r.getIzq(), fin);
         recorrer(r.getDer());
-        writer.write(fin + ":\n");
-        writer.write("\n");
+        writeCode(fin + ":\n");
+        writeCode("\n");
         return "";
     }
 
@@ -285,13 +466,13 @@ public class AsmCodeGenerator implements FileGenerator {
 
         recorrer(body.getIzq());
 
-        writer.write("JMP " + fin + "\n");
+        writeCode("JMP " + fin + "\n");
 
-        writer.write(elseLabel + ":\n");
+        writeCode(elseLabel + ":\n");
 
         recorrer(body.getDer());
 
-        writer.write(fin + ":\n\n");
+        writeCode(fin + ":\n\n");
 
         return "";
     }
@@ -305,29 +486,29 @@ public class AsmCodeGenerator implements FileGenerator {
             // Verificar si es un string literal (con comillas)
             if (valor.startsWith("\"") && valor.endsWith("\"")) {
                 // Ya tiene comillas, lo usamos directamente
-                writer.write("; WRITE " + valor + "\n");
+                writeCode("; WRITE " + valor + "\n");
             }
             // Verificar si parece texto (contiene espacios y no es número ni identificador)
             else if (valor.contains(" ") && !valor.matches("-?\\d+")) {
                 // Es texto sin comillas, lo agregamos nosotros
-                writer.write("; WRITE \"" + valor + "\"\n");
+                writeCode("; WRITE \"" + valor + "\"\n");
             }
             // Verificar si es un identificador (variable)
             else if (valor.matches("[a-zA-Z_][a-zA-Z0-9_]*")) {
-                writer.write("; WRITE variable: " + valor + "\n");
+                writeCode("; WRITE variable: " + valor + "\n");
             }
             // Verificar si es un número
             else if (valor.matches("-?\\d+")) {
-                writer.write("; WRITE number: " + valor + "\n");
+                writeCode("; WRITE number: " + valor + "\n");
             }
             // Cualquier otro caso
             else {
-                writer.write("; WRITE \"" + valor + "\"\n");
+                writeCode("; WRITE \"" + valor + "\"\n");
             }
         } else {
             // Es una expresión compleja
             String texto = recorrer(hijo);
-            writer.write("; WRITE expression: " + texto + "\n");
+            writeCode("; WRITE expression: " + texto + "\n");
         }
 
         return "";
@@ -357,7 +538,7 @@ public class AsmCodeGenerator implements FileGenerator {
 
                 generarCondicion(r.getDer(), salida);
 
-                writer.write(siguiente + ":\n");
+                writeCode(siguiente + ":\n");
 
                 break;
 
@@ -423,8 +604,16 @@ public class AsmCodeGenerator implements FileGenerator {
     private void generarComparacion(Root r, String salto, String etiqueta) throws IOException {
         String a = recorrer(r.getIzq());
         String b = recorrer(r.getDer());
+        if (a.isEmpty() || b.isEmpty())
+            return;
 
-        writer.write("CMP " + a + ", " + b + "\n");  // Espacio después de la coma
-        writer.write(salto + " " + etiqueta + "\n");
+        writeCode("FLD " + a + "\n");
+        writeCode("FLD " + b + "\n");
+        writeCode("FXCH\n");
+        writeCode("FCOMP\n");
+        writeCode("FSTSW AX\n");
+        writeCode("FFREE\n");
+        writeCode("SAHF\n");
+        writeCode(salto + " " + etiqueta + "\n");
     }
 }
