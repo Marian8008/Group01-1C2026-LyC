@@ -227,8 +227,8 @@ write_line ::= IDENTIFIER:id {:
 write_line ::= STRING_CONSTANT:constant {:
     System.out.println("Write: " + constant);
     String c = constant.toString();
-    String symbolName = sym.insert(c,"STRING",c,false);
-    RESULT = new Leaf(symbolName);
+    sym.insert(c,"STRING",c,false);
+    RESULT = new Leaf(c);
 :};
 
 // Read
@@ -546,8 +546,8 @@ factor ::= INTEGER_CONSTANT:constant {:
 factor ::= STRING_CONSTANT:constant {:
     System.out.println("STRING Constant: " + constant );
     String c = constant.toString();
-    String symbolName = sym.insert(c,"STRING",c,false);
-    RESULT = new SemVal(new Leaf(symbolName), "STRING");
+    sym.insert(c,"STRING",c,false);
+    RESULT = new SemVal(new Leaf(c), "STRING");
 :};
 
 factor ::= OPEN_BRACKET expression:e CLOSE_BRACKET {:

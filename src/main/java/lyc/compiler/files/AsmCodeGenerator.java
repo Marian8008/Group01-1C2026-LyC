@@ -76,8 +76,8 @@ public class AsmCodeGenerator implements FileGenerator {
         return t;
     }
 
-    private void writeDataDeclarations() throws IOException {
-        // Declarar variables en el orden de aparición y con el tipo correcto
+    private void writeDataDeclarations() throws IOException { // Declarar variables en el orden de aparición y con el
+                                                              // tipo correcto
         for (String var : intVariables) {
             writer.write(var + " dd ?\n");
         }
@@ -87,9 +87,7 @@ public class AsmCodeGenerator implements FileGenerator {
         for (String var : stringVariables) {
             writer.write(var + " db MAXTEXTSIZE dup(?), '$'\n");
         }
-
         writer.write("\n"); // Separador
-
         // Declarar constantes en el orden de aparición y con el tipo correcto
         for (Map.Entry<String, String> entry : intConstants.entrySet()) {
             writer.write(entry.getKey() + " dd " + entry.getValue() + "\n");
@@ -98,11 +96,9 @@ public class AsmCodeGenerator implements FileGenerator {
             writer.write(entry.getKey() + " dd " + entry.getValue() + "\n");
         }
         for (Map.Entry<String, String> entry : stringConstants.entrySet()) {
-            writer.write(entry.getKey() + " db \"" + entry.getValue() + "\", '$'\n");
+            writer.write(entry.getKey() + " db " + entry.getValue() + ", '$'\n");
         }
-
         writer.write("\n"); // Separador
-
         // Declarar auxiliares (en orden de creación)
         for (String aux : auxiliares) {
             writer.write(aux + " dd ?\n");

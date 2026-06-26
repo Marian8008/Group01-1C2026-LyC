@@ -186,9 +186,10 @@ LineComment = "//" {ValidLineCommentCharacter}*
       String value = yytext();
       return parseIntegerConstant(value);
   }
+  
   {StringConstant}                         {
-      String value = yytext().substring(1, yytext().length() - 1);
-      if (value.length() > MAX_LENGTH) {
+      String value = yytext();
+      if (value.substring(1, value.length() - 1).length() > MAX_LENGTH) {
           throw new InvalidLengthException("La longitud del STRING "+value +" supera lo permitido.");
       }
       return symbol(ParserSym.STRING_CONSTANT, value);

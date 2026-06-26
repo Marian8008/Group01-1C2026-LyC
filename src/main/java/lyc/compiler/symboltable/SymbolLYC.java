@@ -10,9 +10,9 @@ public class SymbolLYC {
   public SymbolLYC(String name, String value, String type) {
     this.type = type;
     this.value = value;
-    this.length = value.length();
+    this.length = calculateLength(value, type);
     this.name = name;
-  }
+}
 
   public String getType() {
     return type;
@@ -36,8 +36,8 @@ public class SymbolLYC {
 
   public void setValue(String value) {
     this.value = value;
-    this.length = value.length();
-  }
+    this.length = calculateLength(value, this.type);
+}
 
   public String getName() {
     return name;
@@ -47,6 +47,19 @@ public class SymbolLYC {
     this.name = name;
   }
 
+  private int calculateLength(String value, String type) {
+    if (value == null) {
+        return 0;
+    }
+
+    if ((type.equals("STRING") || type.equals("CTE_STRING"))
+            && value.startsWith("\"")
+            && value.endsWith("\"")) {
+        return value.length() - 2;
+    }
+
+    return value.length();
+}
   @Override
   public String toString() {
     String format = "%-50s│%-10s│%-50s│%-10s";
