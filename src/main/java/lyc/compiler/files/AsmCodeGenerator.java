@@ -52,6 +52,7 @@ public class AsmCodeGenerator implements FileGenerator {
 
     private void writeHeader() throws IOException {
 
+        writer.write("include macros.asm\n");
         writer.write("include macros2.asm\n");
         writer.write("include number.asm\n\n");
         writer.write(".MODEL LARGE\n");
@@ -304,6 +305,8 @@ public class AsmCodeGenerator implements FileGenerator {
 
             case "WRITE":
                 return write(r);
+            case "READ":
+                return read(r);
         }
 
         return "";
@@ -400,6 +403,14 @@ public class AsmCodeGenerator implements FileGenerator {
             return "";
         }
 
+        SymbolLYC symbol = symbolTable.get(variable);
+        if (symbol != null && "STRING".equals(symbol.getType())) {
+            writeCode("LEA SI, " + valor + "\n");
+            writeCode("LEA DI, " + variable + "\n");
+            writeCode("STRCPY\n\n");
+            return variable;
+        }
+
         writeCode("FLD " + valor + "\n");
         writeCode("FSTP " + variable + "\n");
         writeCode("\n");
@@ -475,38 +486,115 @@ public class AsmCodeGenerator implements FileGenerator {
 
     private String write(Root r) throws IOException {
         Nodo hijo = r.getIzq();
+        if (hijo == null)
+            return "";
 
-        if (hijo instanceof Leaf) {
-            String valor = ((Leaf) hijo).getValor();
+        // Obtener etiqueta/operando a escribir
+        String operando;
+        boolean isLeaf = hijo instanceof Leaf;
 
-            // Verificar si es un string literal (con comillas)
-            if (valor.startsWith("\"") && valor.endsWith("\"")) {
-                // Ya tiene comillas, lo usamos directamente
-                writeCode("; WRITE " + valor + "\n");
-            }
-            // Verificar si parece texto (contiene espacios y no es número ni identificador)
-            else if (valor.contains(" ") && !valor.matches("-?\\d+")) {
-                // Es texto sin comillas, lo agregamos nosotros
-                writeCode("; WRITE \"" + valor + "\"\n");
-            }
-            // Verificar si es un identificador (variable)
-            else if (valor.matches("[a-zA-Z_][a-zA-Z0-9_]*")) {
-                writeCode("; WRITE variable: " + valor + "\n");
-            }
-            // Verificar si es un número
-            else if (valor.matches("-?\\d+")) {
-                writeCode("; WRITE number: " + valor + "\n");
-            }
-            // Cualquier otro caso
-            else {
-                writeCode("; WRITE \"" + valor + "\"\n");
-            }
+        if (isLeaf) {
+            operando = ((Leaf) hijo).getValor();
         } else {
-            // Es una expresión compleja
-            String texto = recorrer(hijo);
-            writeCode("; WRITE expression: " + texto + "\n");
+            operando = recorrer(hijo);
         }
 
+        // String literal
+        if (isLeaf && isStringLiteral(operando)) {
+            String label = formatearOperando(operando);
+            writeCode("displayString " + label + "\n");
+            return "";
+        }
+
+        // If it's an identifier, consult symbol table
+        if (operando != null && operando.matches("[a-zA-Z_][a-zA-Z0-9_]*") && symbolTable.exists(operando)) {
+            SymbolLYC sym = symbolTable.get(operando);
+            if (sym != null) {
+                switch (sym.getType()) {
+                    case "STRING":
+                        writeCode("displayString " + operando + "\n");
+                        return "";
+                    case "INT":
+                        writeCode("DisplayInteger " + operando + "\n");
+                        return "";
+                    case "FLOAT":
+                        writeCode("DisplayFloat " + operando + ", 2\n");
+                        return "";
+                    default:
+                        writeCode("; WRITE unsupported type for " + operando + "\n");
+                        return "";
+                }
+            }
+        }
+
+        // If operando corresponds to known constant or auxiliar/variable sets
+        if (operando != null) {
+            if (stringConstants.containsKey(operando) || stringVariables.contains(operando)) {
+                writeCode("displayString " + operando + "\n");
+                return "";
+            }
+            if (auxiliares.contains(operando) || floatConstants.containsKey(operando) || floatVariables.contains(operando)) {
+                writeCode("DisplayFloat " + operando + ", 2\n");
+                return "";
+            }
+            if (intConstants.containsKey(operando) || intVariables.contains(operando)) {
+                writeCode("DisplayInteger " + operando + "\n");
+                return "";
+            }
+        }
+
+        // As a fallback, if it's a numeric literal (leaf)
+        if (isLeaf && isIntegerLiteral(operando)) {
+            String label = formatearOperando(operando);
+            writeCode("DisplayInteger " + label + "\n");
+            return "";
+        }
+        if (isLeaf && isFloatLiteral(operando)) {
+            String label = formatearOperando(operando);
+            writeCode("DisplayFloat " + label + ", 2\n");
+            return "";
+        }
+
+        writeCode("; WRITE unsupported operand: " + operando + "\n");
+        return "";
+    }
+
+    private String read(Root r) throws IOException {
+        Nodo hijo = r.getIzq();
+
+        if (hijo == null)
+            return "";
+
+        if (!(hijo instanceof Leaf)) {
+            writeCode("; READ unsupported non-leaf\n");
+            return "";
+        }
+
+        String nombre = ((Leaf) hijo).getValor();
+        if (nombre == null || nombre.isEmpty())
+            return "";
+
+        if (symbolTable.exists(nombre)) {
+            SymbolLYC sym = symbolTable.get(nombre);
+            if (sym != null) {
+                switch (sym.getType()) {
+                    case "STRING":
+                        writeCode("getString " + nombre + "\n");
+                        return "";
+                    case "INT":
+                        writeCode("GetInteger " + nombre + "\n");
+                        return "";
+                    case "FLOAT":
+                        writeCode("GetFloat " + nombre + "\n");
+                        return "";
+                    default:
+                        writeCode("; READ unsupported type for " + nombre + "\n");
+                        return "";
+                }
+            }
+        }
+
+        writeCode("; READ unknown variable: " + nombre + "\n");
         return "";
     }
 
