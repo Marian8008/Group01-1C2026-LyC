@@ -303,6 +303,9 @@ public class AsmCodeGenerator implements FileGenerator {
             case "WHILE":
                 return generarWhile(r);
 
+            case "FOR":
+                return generarFor(r);
+
             case "WRITE":
                 return write(r);
             case "READ":
@@ -461,7 +464,54 @@ public class AsmCodeGenerator implements FileGenerator {
         writeCode("\n");
         return "";
     }
+    private String generarFor(Root r) throws IOException {
+        if (r == null)
+            return "";
 
+        // FOR node: Left = loop variable leaf
+        // Right = FOR_BODY node
+        Root body = (Root) r.getDer();
+        Root range = (Root) body.getIzq();
+        Root dataFor = (Root) body.getDer();
+        Nodo block = dataFor.getIzq();
+        Nodo step = dataFor.getDer();
+
+        String varName = ((Leaf) r.getIzq()).getValor();
+        String startValue = recorrer(range.getIzq());
+        String endValue = recorrer(range.getDer());
+        String stepValue = step != null ? recorrer(step) : "1";
+
+        String inicio = "L" + label++;
+        String fin = "L" + label++;
+
+        // Inicializar variable de control
+        writeCode("FLD " + startValue + "\n");
+        writeCode("FSTP " + varName + "\n");
+        writeCode("\n");
+
+        writeCode(inicio + ":\n");
+
+        // Compare varName > endValue, if so exit
+        generarCondicion(new Root(
+                "<=",
+                new Leaf(varName),
+                range.getDer()
+        ), fin);
+
+        // Cuerpo del for
+        recorrer(block);
+
+        // Incrementar variable de control: varName = varName + stepValue
+        String incrementValue = recorrer(new Root("+", new Leaf(varName), new Leaf(stepValue)));
+        writeCode("FLD " + incrementValue + "\n");
+        writeCode("FSTP " + varName + "\n");
+        writeCode("\n");
+
+        writeCode("JMP " + inicio + "\n");
+        writeCode(fin + ":\n\n");
+
+        return "";
+    }
     private String generarIfElse(Root r) throws IOException {
 
         String elseLabel = "L" + label++;
