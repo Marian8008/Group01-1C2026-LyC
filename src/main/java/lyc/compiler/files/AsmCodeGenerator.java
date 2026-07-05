@@ -565,7 +565,7 @@ public class AsmCodeGenerator implements FileGenerator {
                         writeCode("displayString " + operando + "\n");
                         return "";
                     case "INT":
-                        writeCode("DisplayInteger " + operando + "\n");
+                        writeCode("DisplayFloat " + operando + ", 0\n");
                         return "";
                     case "FLOAT":
                         writeCode("DisplayFloat " + operando + ", 2\n");
@@ -632,7 +632,7 @@ public class AsmCodeGenerator implements FileGenerator {
                         writeCode("getString " + nombre + "\n");
                         return "";
                     case "INT":
-                        writeCode("GetInteger " + nombre + "\n");
+                        writeCode("GetFloat " + nombre + "\n");
                         return "";
                     case "FLOAT":
                         writeCode("GetFloat " + nombre + "\n");

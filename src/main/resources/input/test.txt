@@ -40,7 +40,9 @@ else {
 
 for (i := 1 TO 5)
 {
+   write(i)
    read(i)
+   write(i)
 }
 NEXT i
 
