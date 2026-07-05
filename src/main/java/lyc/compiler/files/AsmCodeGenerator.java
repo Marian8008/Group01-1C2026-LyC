@@ -668,7 +668,7 @@ public class AsmCodeGenerator implements FileGenerator {
 
                 String siguiente = "L" + label++;
 
-                generarComparacion((Root) r.getIzq(), "JG", siguiente);
+                generarComparacion((Root) r.getIzq(), "JA", siguiente);
 
                 generarCondicion(r.getDer(), salida);
 
@@ -683,19 +683,19 @@ public class AsmCodeGenerator implements FileGenerator {
                 switch (hijo.getOperador()) {
 
                     case ">":
-                        generarComparacion(hijo, "JG", salida);
+                        generarComparacion(hijo, "JA", salida);
                         break;
 
                     case "<":
-                        generarComparacion(hijo, "JL", salida);
+                        generarComparacion(hijo, "JB", salida);
                         break;
 
                     case ">=":
-                        generarComparacion(hijo, "JGE", salida);
+                        generarComparacion(hijo, "JAE", salida);
                         break;
 
                     case "<=":
-                        generarComparacion(hijo, "JLE", salida);
+                        generarComparacion(hijo, "JBE", salida);
                         break;
 
                     case "==":
@@ -710,19 +710,19 @@ public class AsmCodeGenerator implements FileGenerator {
                 break;
 
             case ">":
-                generarComparacion(r, "JLE", salida);
+                generarComparacion(r, "JBE", salida);
                 break;
 
             case "<":
-                generarComparacion(r, "JGE", salida);
+                generarComparacion(r, "JAE", salida);
                 break;
 
             case ">=":
-                generarComparacion(r, "JL", salida);
+                generarComparacion(r, "JB", salida);
                 break;
 
             case "<=":
-                generarComparacion(r, "JG", salida);
+                generarComparacion(r, "JA", salida);
                 break;
 
             case "==":
